@@ -1,26 +1,36 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect } from "react";
+import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
+import SignInSide from "./components/auth/SignInSide";
+import Dashboard from "./components/dashboard/Dashboard";
+import Alert from "./components/layout/Alert";
+import PrivateRoute from "./components/routing/PrivateRoute";
+import setAuthToken from "./utils/setAuthToken";
+import { loadUser } from "./actions/auth";
 
-function App() {
+// Redux
+import { Provider } from "react-redux";
+import store from "./store";
+
+import "./App.css";
+
+localStorage.token && setAuthToken(localStorage.token);
+
+const App = () => {
+  useEffect(() => {
+    store.dispatch(loadUser());
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Provider store={store}>
+      <Router>
+        <Alert />
+        <Switch>
+          <Route exact path="/" component={SignInSide} />
+          <PrivateRoute exact path="/dashboard" component={Dashboard} />
+        </Switch>
+      </Router>
+    </Provider>
   );
-}
+};
 
 export default App;
