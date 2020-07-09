@@ -18,19 +18,8 @@ import Grid from "@material-ui/core/Grid";
 import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
 import Typography from "@material-ui/core/Typography";
 import { makeStyles } from "@material-ui/core/styles";
-
-function Copyright() {
-  return (
-    <Typography variant="body2" color="textSecondary" align="center">
-      {"Copyright © "}
-      <Link color="inherit" href="https://material-ui.com/">
-        Your Website
-      </Link>{" "}
-      {new Date().getFullYear()}
-      {"."}
-    </Typography>
-  );
-}
+import Copyright from './../layout/Copyright'
+import Helmet from '../layout/Helmet'
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -94,6 +83,7 @@ const SignInSide = (props) => {
 
   return (
     <Grid container component="main" className={classes.root}>
+      <Helmet title="Login" />
       <CssBaseline />
       <Grid item xs={false} sm={4} md={7} className={classes.image} />
       <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
