@@ -1,12 +1,14 @@
 import React, { useEffect } from "react";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import SignInSide from "./components/auth/SignInSide";
-import Dashboard from "./components/dashboard/Dashboard";
+import Dashboard from "./components/dashboard";
 import Alert from "./components/layout/Alert";
 import PrivateRoute from "./components/routing/PrivateRoute";
 import setAuthToken from "./utils/setAuthToken";
 import { loadUser } from "./actions/auth";
-import history from './components/routing/history';
+import history from "./components/routing/history";
+import Reservations from "./components/reservations";
+import { CssBaseline } from "@material-ui/core";
 
 // Redux
 import { Provider } from "react-redux";
@@ -23,11 +25,13 @@ const App = () => {
 
   return (
     <Provider store={store}>
+      <CssBaseline />
       <Router history={history}>
         <Alert />
         <Switch>
           <Route exact path="/" component={SignInSide} />
           <PrivateRoute exact path="/dashboard" component={Dashboard} />
+          <PrivateRoute exact path="/reservations" component={Reservations} />
         </Switch>
       </Router>
     </Provider>

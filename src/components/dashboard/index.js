@@ -2,11 +2,11 @@ import React from "react";
 import { connect } from "react-redux";
 import { makeStyles } from "@material-ui/core/styles";
 import clsx from "clsx";
-import { Paper, Grid, Container, Box, CssBaseline } from "@material-ui/core";
+import { Paper, Grid, Container, Box } from "@material-ui/core";
 
-import Chart from "./Chart";
-import Deposits from "./Deposits";
-import Orders from "./Orders";
+import Chart from "./components/Chart";
+import Deposits from "./components/Deposits";
+import Orders from "./components/Orders";
 import SideBar from "../layout/SideBar";
 import Helmet from "../layout/Helmet";
 
@@ -42,8 +42,7 @@ const Dashboard = () => {
   const fixedHeightPaper = clsx(classes.paper, classes.fixedHeight);
 
   return (
-    <div title="Dashboard" className={classes.root}>
-      <CssBaseline />
+    <div className={classes.root}>
       <Helmet title="Dashboard" />
       <SideBar title="Dashboard" />
       <main className={classes.content}>

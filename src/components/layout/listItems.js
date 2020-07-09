@@ -8,29 +8,28 @@ import ShoppingCartIcon from "@material-ui/icons/ShoppingCart";
 import PeopleIcon from "@material-ui/icons/People";
 import BarChartIcon from "@material-ui/icons/BarChart";
 import AssignmentIcon from "@material-ui/icons/Assignment";
-import history from "../routing/history";
 
 export const mainListItems = (
   <div>
-    <ListItem button onClick={() => history.push("/dashboard")}>
+    <ListItem button onClick={() => (window.location.href = "/dashboard")}>
       <ListItemIcon>
         <DashboardIcon />
       </ListItemIcon>
       <ListItemText primary="Dashboard" />
     </ListItem>
-    <ListItem button onClick={() => history.push("/reservations")}>
+    <ListItem button onClick={() => (window.location.href = "/reservations")}>
       <ListItemIcon>
         <ShoppingCartIcon />
       </ListItemIcon>
       <ListItemText primary="Reservations" />
     </ListItem>
-    <ListItem button onClick={() => history.push("/customers")}>
+    <ListItem button onClick={() => (window.location.href = "/customers")}>
       <ListItemIcon>
         <PeopleIcon />
       </ListItemIcon>
       <ListItemText primary="Customers" />
     </ListItem>
-    <ListItem button onClick={() => history.push("/reports")}>
+    <ListItem button onClick={() => (window.location.href = "/reports")}>
       <ListItemIcon>
         <BarChartIcon />
       </ListItemIcon>
