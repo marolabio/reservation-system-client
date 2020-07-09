@@ -6,6 +6,7 @@ import Alert from "./components/layout/Alert";
 import PrivateRoute from "./components/routing/PrivateRoute";
 import setAuthToken from "./utils/setAuthToken";
 import { loadUser } from "./actions/auth";
+import history from './components/routing/history';
 
 // Redux
 import { Provider } from "react-redux";
@@ -22,7 +23,7 @@ const App = () => {
 
   return (
     <Provider store={store}>
-      <Router>
+      <Router history={history}>
         <Alert />
         <Switch>
           <Route exact path="/" component={SignInSide} />

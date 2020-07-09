@@ -5,6 +5,8 @@ import {
   AUTH_ERROR,
   LOGOUT,
 } from "./../actions/types";
+import api from "./../utils/api";
+
 
 const initialState = {
   token: localStorage.getItem("token"),
@@ -27,6 +29,7 @@ export default function (state = initialState, action) {
     case LOGIN_SUCCESS:
       localStorage.setItem("token", payload.jwt);
 
+
       return {
         ...state,
         token: payload.jwt,
@@ -38,6 +41,7 @@ export default function (state = initialState, action) {
     case AUTH_ERROR:
     case LOGOUT:
       localStorage.removeItem("token");
+      delete api.defaults.headers.common["Authorization"];
 
       return {
         ...state,
