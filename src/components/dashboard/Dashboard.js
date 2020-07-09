@@ -1,22 +1,16 @@
 import React from "react";
-import PropTypes from "prop-types";
 import { connect } from "react-redux";
 import { makeStyles } from "@material-ui/core/styles";
 import clsx from "clsx";
-import {
-  Paper,
-  Grid,
-  Container,
-  Box,
-  CssBaseline,
-} from "@material-ui/core";
+import { Paper, Grid, Container, Box, CssBaseline } from "@material-ui/core";
 
 import Chart from "./Chart";
 import Deposits from "./Deposits";
 import Orders from "./Orders";
 import SideBar from "../layout/SideBar";
+import Helmet from "../layout/Helmet";
+
 import Copyright from "../layout/Copyright";
-import { logout } from "../../actions/auth";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -43,14 +37,15 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const Dashboard = ({ logout }) => {
+const Dashboard = () => {
   const classes = useStyles();
   const fixedHeightPaper = clsx(classes.paper, classes.fixedHeight);
 
   return (
-    <div className={classes.root}>
+    <div title="Dashboard" className={classes.root}>
       <CssBaseline />
-      <SideBar title="Dashboard"/>
+      <Helmet title="Dashboard" />
+      <SideBar title="Dashboard" />
       <main className={classes.content}>
         <div className={classes.appBarSpacer} />
         <Container maxWidth="lg" className={classes.container}>
@@ -83,12 +78,8 @@ const Dashboard = ({ logout }) => {
   );
 };
 
-Dashboard.propTypes = {
-  logout: PropTypes.func.isRequired,
-};
-
 const mapStateToProps = (state) => ({
   isAuthenticated: state.auth.isAuthenticated,
 });
 
-export default connect(mapStateToProps, { logout })(Dashboard);
+export default connect(mapStateToProps)(Dashboard);
