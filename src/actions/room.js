@@ -1,7 +1,7 @@
 import api from "../utils/api";
 import { GET_ROOMS_SUCCESS, GET_ROOMS_FAIL } from "./types";
 
-export const getPost = () => async (dispatch) => {
+export const getRooms = () => async (dispatch) => {
 
   return await api
     .get("/rooms")

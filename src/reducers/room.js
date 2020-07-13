@@ -1,4 +1,4 @@
-import { GET_ROOMS_SUCCESS, GET_ROOMS_FAIL } from "./../actions/types";
+import { GET_ROOMS_SUCCESS, GET_ROOMS_FAIL } from "../actions/types";
 
 const initialState = {
   rooms: [],

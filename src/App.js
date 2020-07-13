@@ -8,7 +8,8 @@ import { loadUser } from "./actions/auth";
 import history from "./components/routing/history";
 import Reservations from "./components/reservations";
 import { CssBaseline } from "@material-ui/core";
-import Login from './components/auth'
+import Login from "./components/auth";
+import ForgotPassword from "./components/forgotPassword";
 
 // Redux
 import { Provider } from "react-redux";
@@ -30,6 +31,7 @@ const App = () => {
         <Alert />
         <Switch>
           <Route exact path="/" component={Login} />
+          <Route exact path="/forgot-password" component={ForgotPassword} />
           <PrivateRoute exact path="/dashboard" component={Dashboard} />
           <PrivateRoute exact path="/reservations" component={Reservations} />
         </Switch>
