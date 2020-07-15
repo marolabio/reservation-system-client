@@ -5,16 +5,14 @@ import { Grid } from "@material-ui/core";
 import Content from "./../layout/Content";
 import io from "socket.io-client";
 
-const socket = io(process.env.REACT_APP_BASE_URL)
+const socket = io(process.env.REACT_APP_BASE_URL);
 
 function Reservations({ getRooms, rooms, loading }) {
-
   useEffect(() => {
     getRooms();
     socket.on("hello", (res) => {
-      console.log(res)
+      console.log(res);
     });
-
   }, [getRooms]);
 
   return (
