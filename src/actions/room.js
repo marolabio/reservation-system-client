@@ -2,7 +2,6 @@ import api from "../utils/api";
 import { GET_ROOMS_SUCCESS, GET_ROOMS_FAIL } from "./types";
 
 export const getRooms = () => async (dispatch) => {
-
   return await api
     .get("/rooms")
     .then((res) => {
@@ -14,8 +13,7 @@ export const getRooms = () => async (dispatch) => {
     .catch((err) => {
       dispatch({
         type: GET_ROOMS_FAIL,
-        payload: err.response.data
+        payload: err.response.data,
       });
     });
 };
-
