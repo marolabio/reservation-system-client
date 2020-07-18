@@ -8,6 +8,8 @@ import { loadUser } from "./actions/auth";
 import history from "./components/routing/history";
 import Reservations from "./components/reservations";
 import { CssBaseline } from "@material-ui/core";
+import { MuiPickersUtilsProvider } from "@material-ui/pickers";
+import MomentUtils from "@date-io/moment";
 import Login from "./components/auth";
 import ForgotPassword from "./components/forgotPassword";
 
@@ -29,12 +31,14 @@ const App = () => {
       <CssBaseline />
       <Router history={history}>
         <Alert />
-        <Switch>
-          <Route exact path="/" component={Login} />
-          <Route exact path="/forgot-password" component={ForgotPassword} />
-          <PrivateRoute exact path="/dashboard" component={Dashboard} />
-          <PrivateRoute exact path="/reservations" component={Reservations} />
-        </Switch>
+        <MuiPickersUtilsProvider utils={MomentUtils}>
+          <Switch>
+            <Route exact path="/" component={Login} />
+            <Route exact path="/forgot-password" component={ForgotPassword} />
+            <PrivateRoute exact path="/dashboard" component={Dashboard} />
+            <PrivateRoute exact path="/reservations" component={Reservations} />
+          </Switch>
+        </MuiPickersUtilsProvider>
       </Router>
     </Provider>
   );
