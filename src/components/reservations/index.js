@@ -9,51 +9,38 @@ import moment from "moment";
 const socket = io(process.env.REACT_APP_BASE_URL);
 
 function Reservations() {
-  const [rooms, setRoom] = useState([]);
+  const [state, setState] = useState({ rooms: [], reservedRooms: [] });
+  const { rooms, reservedRooms } = state;
   const [loading, setLoading] = useState();
-  const [checkinDate, handleCheckinDate] = useState(
+  const [checkinDate, setCheckinDate] = useState(moment().format("YYYY-MM-DD"));
+  const [checkoutDate, setCheckoutDate] = useState(
     moment().format("YYYY-MM-DD")
   );
-  const [checkoutDate, handleCheckoutDate] = useState(
-    moment().format("YYYY-MM-DD")
-  );
+
+  // Filter reservation based on date
+  const filteredReservedRooms = reservedRooms
+    .filter(
+      (res) =>
+        moment(res.checkin).isBetween(checkinDate, checkoutDate, null, "[]") ||
+        moment(res.checkout).isBetween(checkinDate, checkoutDate, null, "[]")
+    )
+    .flatMap((res) => res.reserved_room);
+
+  // Update room quantity
+  const filteredRooms = rooms.map(room => {
+    let object = filteredReservedRooms.find((value) => value.id === room.id);
+    return object ? {...room, quantity: room.quantity - object.quantity} : room
+  })
 
   useEffect(() => {
     setLoading(true);
     socket.emit("get-reserved-rooms");
 
-    socket.on("get-reserved-rooms", ({ rooms, reservedRooms }) => {
-      // Filter reservation based on date
-      let filteredReservedRooms = reservedRooms
-        .filter(
-          (res) =>
-            moment(res.checkin).isBetween(
-              checkinDate,
-              checkoutDate,
-              null,
-              "[]"
-            ) ||
-            moment(res.checkout).isBetween(
-              checkinDate,
-              checkoutDate,
-              null,
-              "[]"
-            )
-        )
-        .flatMap((res) => res.reserved_room);
-
-      // Update room quantity
-      filteredReservedRooms.map((room) => {
-        let objIndex = rooms.findIndex((value) => value.id === room.id);
-
-        return (rooms[objIndex].quantity =
-          rooms[objIndex].quantity - room.quantity);
-      });
-
-      setRoom(rooms.filter((room) => room.quantity > 0));
+    socket.on("get-reserved-rooms", (data) => {
+      setState(data);
       setLoading(false);
     });
-  }, [setRoom, checkinDate, checkoutDate]);
+  }, []);
 
   return (
     <Content title="Reservations" loading={loading}>
@@ -62,7 +49,7 @@ function Reservations() {
           <DatePicker
             label="Checkin Date"
             value={checkinDate}
-            onChange={(date) => handleCheckinDate(date.format("YYYY-MM-DD"))}
+            onChange={(date) => setCheckinDate(date.format("YYYY-MM-DD"))}
             animateYearScrolling
             format="YYYY-MM-DD"
           />
@@ -71,13 +58,13 @@ function Reservations() {
           <DatePicker
             label="Checkout Date"
             value={checkoutDate}
-            onChange={(date) => handleCheckoutDate(date.format("YYYY-MM-DD"))}
+            onChange={(date) => setCheckoutDate(date.format("YYYY-MM-DD"))}
             animateYearScrolling
             format="YYYY-MM-DD"
           />
         </Grid>
         <Grid item xs={12}>
-          {rooms.map((room) => (
+          {filteredRooms.map((room) => (
             <div key={room.id}>
               <br />
               Name: {room.name}
