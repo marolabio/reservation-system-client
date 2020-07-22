@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { connect } from "react-redux";
-import { getRooms } from "./../../actions/room";
-import { Grid, Button } from "@material-ui/core";
+import { Grid } from "@material-ui/core";
 import Content from "./../layout/Content";
 import io from "socket.io-client";
 import { DatePicker } from "@material-ui/pickers";
@@ -9,7 +8,9 @@ import moment from "moment";
 
 const socket = io(process.env.REACT_APP_BASE_URL);
 
-function Reservations({ getRooms, loading, rooms }) {
+function Reservations() {
+  const [rooms, setRoom] = useState([]);
+  const [loading, setLoading] = useState();
   const [checkinDate, handleCheckinDate] = useState(
     moment().format("YYYY-MM-DD")
   );
@@ -17,24 +18,47 @@ function Reservations({ getRooms, loading, rooms }) {
     moment().format("YYYY-MM-DD")
   );
 
-
   useEffect(() => {
-    getRooms();
-    socket.on("get_reserved_rooms", (reserved_rooms) => {
-      console.log("reserved_rooms", reserved_rooms);
-      // reserved_rooms.map(({ reserved_quantity, room }) => {
-      //   let objIndex = rooms.findIndex((value) => value.id === room.id);
-      //   rooms[objIndex].quantity = rooms[objIndex].quantity - reserved_quantity;
-      // });
-    });
-  }, [getRooms]);
+    setLoading(true);
+    socket.emit("get-reserved-rooms");
 
-  // rooms.filter((room) => room.quantity > 0)
+    socket.on("get-reserved-rooms", ({ rooms, reservedRooms }) => {
+      // Filter reservation based on date
+      let filteredReservedRooms = reservedRooms
+        .filter(
+          (res) =>
+            moment(res.checkin).isBetween(
+              checkinDate,
+              checkoutDate,
+              null,
+              "[]"
+            ) ||
+            moment(res.checkout).isBetween(
+              checkinDate,
+              checkoutDate,
+              null,
+              "[]"
+            )
+        )
+        .flatMap((res) => res.reserved_room);
+
+      // Update room quantity
+      filteredReservedRooms.map((room) => {
+        let objIndex = rooms.findIndex((value) => value.id === room.id);
+
+        return (rooms[objIndex].quantity =
+          rooms[objIndex].quantity - room.quantity);
+      });
+
+      setRoom(rooms.filter((room) => room.quantity > 0));
+      setLoading(false);
+    });
+  }, [setRoom, checkinDate, checkoutDate]);
 
   return (
     <Content title="Reservations" loading={loading}>
       <Grid container spacing={3}>
-        <Grid item xs={4}>
+        <Grid item xs={6}>
           <DatePicker
             label="Checkin Date"
             value={checkinDate}
@@ -43,7 +67,7 @@ function Reservations({ getRooms, loading, rooms }) {
             format="YYYY-MM-DD"
           />
         </Grid>
-        <Grid item xs={4}>
+        <Grid item xs={6}>
           <DatePicker
             label="Checkout Date"
             value={checkoutDate}
@@ -52,13 +76,6 @@ function Reservations({ getRooms, loading, rooms }) {
             format="YYYY-MM-DD"
           />
         </Grid>
-
-        <Grid item xs={4}>
-          <Button variant="contained" color="primary">
-            Search
-          </Button>
-        </Grid>
-
         <Grid item xs={12}>
           {rooms.map((room) => (
             <div key={room.id}>
@@ -75,9 +92,4 @@ function Reservations({ getRooms, loading, rooms }) {
   );
 }
 
-const mapStateToProps = (state) => ({
-  loading: state.room.loading,
-  rooms: state.room.rooms,
-});
-
-export default connect(mapStateToProps, { getRooms })(Reservations);
+export default connect(null, {})(Reservations);
