@@ -1,82 +1,99 @@
-import React, { useEffect, useState } from "react";
-import { connect } from "react-redux";
-import { Grid } from "@material-ui/core";
+import React from "react";
+import { makeStyles } from "@material-ui/core/styles";
+import Stepper from "@material-ui/core/Stepper";
+import Step from "@material-ui/core/Step";
+import StepLabel from "@material-ui/core/StepLabel";
+import Button from "@material-ui/core/Button";
+import Typography from "@material-ui/core/Typography";
+import PersonalDetails from "./components/PersonalDetails";
+import SelectRoom from "./components/SelectRoom";
+import Review from "./components/Review";
 import Content from "./../layout/Content";
-import io from "socket.io-client";
-import { DatePicker } from "@material-ui/pickers";
-import moment from "moment";
 
-const socket = io(process.env.REACT_APP_BASE_URL);
+const useStyles = makeStyles((theme) => ({
+  stepper: {
+    padding: theme.spacing(3, 0, 5),
+    background: "transparent",
+  },
+  buttons: {
+    display: "flex",
+    justifyContent: "flex-end",
+  },
+  button: {
+    marginTop: theme.spacing(3),
+    marginLeft: theme.spacing(1),
+  },
+}));
 
-function Reservations() {
-  const [state, setState] = useState({ rooms: [], reservedRooms: [] });
-  const { rooms, reservedRooms } = state;
-  const [loading, setLoading] = useState();
-  const [checkinDate, setCheckinDate] = useState(moment().format("YYYY-MM-DD"));
-  const [checkoutDate, setCheckoutDate] = useState(
-    moment().format("YYYY-MM-DD")
-  );
+const steps = ["Select room", "Enter personal details", "Review reservation"];
 
-  // Filter reservation based on date
-  const filteredReservedRooms = reservedRooms
-    .filter(
-      (res) =>
-        moment(res.checkin).isBetween(checkinDate, checkoutDate, null, "[]") ||
-        moment(res.checkout).isBetween(checkinDate, checkoutDate, null, "[]")
-    )
-    .flatMap((res) => res.reserved_room);
+function getStepContent(step) {
+  switch (step) {
+    case 0:
+      return <SelectRoom />;
+    case 1:
+      return <PersonalDetails />;
+    case 2:
+      return <Review />;
+    default:
+      throw new Error("Unknown step");
+  }
+}
 
-  // Update room quantity
-  const filteredRooms = rooms.map(room => {
-    let object = filteredReservedRooms.find((value) => value.id === room.id);
-    return object ? {...room, quantity: room.quantity - object.quantity} : room
-  })
+export default function Reservations() {
+  const classes = useStyles();
+  const [activeStep, setActiveStep] = React.useState(0);
 
-  useEffect(() => {
-    setLoading(true);
-    socket.emit("get-reserved-rooms");
+  const handleNext = () => {
+    setActiveStep(activeStep + 1);
+  };
 
-    socket.on("get-reserved-rooms", (data) => {
-      setState(data);
-      setLoading(false);
-    });
-  }, []);
+  const handleBack = () => {
+    setActiveStep(activeStep - 1);
+  };
 
   return (
-    <Content title="Reservations" loading={loading}>
-      <Grid container spacing={3}>
-        <Grid item xs={6}>
-          <DatePicker
-            label="Checkin Date"
-            value={checkinDate}
-            onChange={(date) => setCheckinDate(date.format("YYYY-MM-DD"))}
-            animateYearScrolling
-            format="YYYY-MM-DD"
-          />
-        </Grid>
-        <Grid item xs={6}>
-          <DatePicker
-            label="Checkout Date"
-            value={checkoutDate}
-            onChange={(date) => setCheckoutDate(date.format("YYYY-MM-DD"))}
-            animateYearScrolling
-            format="YYYY-MM-DD"
-          />
-        </Grid>
-        <Grid item xs={12}>
-          {filteredRooms.map((room) => (
-            <div key={room.id}>
-              <br />
-              Name: {room.name}
-              <br />
-              Available: {room.quantity}
-              <br />
+    <Content title="Reservations" loading={false}>
+      <Stepper activeStep={activeStep} className={classes.stepper}>
+        {steps.map((label) => (
+          <Step key={label}>
+            <StepLabel>{label}</StepLabel>
+          </Step>
+        ))}
+      </Stepper>
+      <React.Fragment>
+        {activeStep === steps.length ? (
+          <React.Fragment>
+            <Typography variant="h5" gutterBottom>
+              Reservation Successful!.
+            </Typography>
+            <Typography variant="subtitle1">
+              Your transaction number is #2001539. We have emailed your
+              reservation confirmation, and will send you an update when your
+              reservation has shipped.
+            </Typography>
+          </React.Fragment>
+        ) : (
+          <React.Fragment>
+            {getStepContent(activeStep)}
+            <div className={classes.buttons}>
+              {activeStep !== 0 && (
+                <Button onClick={handleBack} className={classes.button}>
+                  Back
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleNext}
+                className={classes.button}
+              >
+                {activeStep === steps.length - 1 ? "Place reservation" : "Next"}
+              </Button>
             </div>
-          ))}
-        </Grid>
-      </Grid>
+          </React.Fragment>
+        )}
+      </React.Fragment>
     </Content>
   );
 }
-
-export default connect(null, {})(Reservations);
