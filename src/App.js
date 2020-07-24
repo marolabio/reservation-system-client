@@ -6,7 +6,7 @@ import PrivateRoute from "./components/routing/PrivateRoute";
 import setAuthToken from "./utils/setAuthToken";
 import { loadUser } from "./actions/auth";
 import history from "./components/routing/history";
-import Reservations from "./components/reservations";
+import Reservations from "./components/reservation";
 import { CssBaseline } from "@material-ui/core";
 import { MuiPickersUtilsProvider } from "@material-ui/pickers";
 import MomentUtils from "@date-io/moment";

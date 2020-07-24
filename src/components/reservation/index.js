@@ -8,7 +8,7 @@ import Typography from "@material-ui/core/Typography";
 import PersonalDetails from "./components/PersonalDetails";
 import SelectRoom from "./components/SelectRoom";
 import Review from "./components/Review";
-import Content from "./../layout/Content";
+import Content from "../layout/Content";
 
 const useStyles = makeStyles((theme) => ({
   stepper: {
@@ -27,29 +27,30 @@ const useStyles = makeStyles((theme) => ({
 
 const steps = ["Select room", "Enter personal details", "Review reservation"];
 
-function getStepContent(step) {
-  switch (step) {
-    case 0:
-      return <SelectRoom />;
-    case 1:
-      return <PersonalDetails />;
-    case 2:
-      return <Review />;
-    default:
-      throw new Error("Unknown step");
-  }
-}
-
-export default function Reservations() {
+export default function Reservations(props) {
   const classes = useStyles();
   const [activeStep, setActiveStep] = React.useState(0);
 
-  const handleNext = () => {
+  const handleNext = (data) => {
     setActiveStep(activeStep + 1);
+    console.log("data", data)
   };
 
   const handleBack = () => {
     setActiveStep(activeStep - 1);
+  };
+
+  const getStepContent = (step) => {
+    switch (step) {
+      case 0:
+        return <SelectRoom handleNext={handleNext} />;
+      case 1:
+        return <PersonalDetails />;
+      case 2:
+        return <Review />;
+      default:
+        throw new Error("Unknown step");
+    }
   };
 
   return (
@@ -78,18 +79,22 @@ export default function Reservations() {
             {getStepContent(activeStep)}
             <div className={classes.buttons}>
               {activeStep !== 0 && (
-                <Button onClick={handleBack} className={classes.button}>
-                  Back
-                </Button>
+                <React.Fragment>
+                  <Button onClick={handleBack} className={classes.button}>
+                    Back
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleNext()}
+                    className={classes.button}
+                  >
+                    {activeStep === steps.length - 1
+                      ? "Place reservation"
+                      : "Next"}
+                  </Button>
+                </React.Fragment>
               )}
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleNext}
-                className={classes.button}
-              >
-                {activeStep === steps.length - 1 ? "Place reservation" : "Next"}
-              </Button>
             </div>
           </React.Fragment>
         )}
