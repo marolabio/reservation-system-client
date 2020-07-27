@@ -1,4 +1,7 @@
-import { RESERVATION_SUCCESS, RESERVATION_FAIL } from "./types";
+import {
+  RESERVATION_SUCCESS,
+  RESERVATION_FAIL,
+} from "./types";
 import { setAlert } from "./alert";
 import api from "../utils/api";
 

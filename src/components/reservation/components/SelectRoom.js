@@ -11,7 +11,6 @@ import Container from "@material-ui/core/Container";
 import { makeStyles } from "@material-ui/core/styles";
 import Skeleton from "@material-ui/lab/Skeleton";
 import TextField from "@material-ui/core/TextField";
-
 import moment from "moment";
 import io from "socket.io-client";
 
@@ -35,29 +34,21 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export default function SelectRoom({handleNext}) {
+const SelectRoom = ({ handleSelectRoom, handleChange, handleDateChange, nextStep, state }) => {
   const classes = useStyles();
   const [data, setData] = useState({ rooms: [], reservedRooms: [] });
+  const [loading, setLoading] = useState(true);
+  const { checkin, checkout, roomQuantity, room, adult, children } = state;
   const { rooms, reservedRooms } = data;
-  const [loading, setLoading] = useState();
-  const [checkinDate, setCheckinDate] = useState(moment().format("YYYY-MM-DD"));
-  const [checkoutDate, setCheckoutDate] = useState(
-    moment().format("YYYY-MM-DD")
-  );
-  const [roomQuantity, setRoomQuantity] = useState(1);
-  const [adultQuantity, setAdultQuantity] = useState(1);
-  const [childrenQuantity, setChildrenQuantity] = useState(0);
 
-  // Filter reservation based on date
   const filteredReservedRooms = reservedRooms
     .filter(
       (res) =>
-        moment(res.checkin).isBetween(checkinDate, checkoutDate, null, "[]") ||
-        moment(res.checkout).isBetween(checkinDate, checkoutDate, null, "[]")
+        moment(res.checkin).isBetween(checkin, checkout, null, "[]") ||
+        moment(res.checkout).isBetween(checkin, checkout, null, "[]")
     )
     .flatMap((res) => res.reserved_room);
 
-  // Update room quantity and filter through
   const filteredRooms = rooms
     .map((room) => {
       let object = filteredReservedRooms.find((value) => value.id === room.id);
@@ -65,13 +56,22 @@ export default function SelectRoom({handleNext}) {
         ? { ...room, quantity: room.quantity - object.quantity }
         : room;
     })
-    .filter(
-      (room) => room.occupancy >= adultQuantity || room.quantity <= roomQuantity
-    );
+    .filter((room) => room.occupancy >= adult || room.quantity <= roomQuantity);
 
-  const maxRoomQuantity = filteredRooms.length > 0 ?  Array.from(Array(Math.max(...filteredRooms.map(r => r.quantity))), (_, i) => i + 1) : [0];
-  const maxAdultQuantity = filteredRooms.length > 0 ?  Array.from(Array(Math.max(...filteredRooms.map(r => r.occupancy))), (_, i) => i + 1) : [0];
- 
+  const maxRoomQuantity =
+    filteredRooms.length > 0
+      ? Array.from(
+          Array(Math.max(...filteredRooms.map((r) => r.quantity))),
+          (_, i) => i + 1
+        )
+      : [0];
+  const maxAdultQuantity =
+    filteredRooms.length > 0
+      ? Array.from(
+          Array(Math.max(...filteredRooms.map((r) => r.occupancy))),
+          (_, i) => i + 1
+        )
+      : [0];
 
   useEffect(() => {
     setLoading(true);
@@ -94,8 +94,8 @@ export default function SelectRoom({handleNext}) {
             inputVariant="outlined"
             fullWidth
             label="Checkin Date"
-            value={checkinDate}
-            onChange={(date) => setCheckinDate(date.format("YYYY-MM-DD"))}
+            value={checkin}
+            onChange={(date) => handleDateChange("checkin", date)}
             animateYearScrolling
             format="YYYY-MM-DD"
           />
@@ -105,19 +105,19 @@ export default function SelectRoom({handleNext}) {
             inputVariant="outlined"
             fullWidth
             label="Checkout Date"
-            value={checkoutDate}
-            onChange={(date) => setCheckoutDate(date.format("YYYY-MM-DD"))}
+            value={checkout}
+            onChange={(date) => handleDateChange("checkout", date)}
             animateYearScrolling
             format="YYYY-MM-DD"
           />
         </Grid>
         <Grid item xs={12} sm={4}>
           <TextField
-            id="standard-select-currency-native"
             select
             label="Room quantity"
             value={roomQuantity}
-            onChange={(e) => setRoomQuantity(e.target.value)}
+            name="roomQuantity"
+            onChange={handleChange}
             variant="outlined"
             SelectProps={{
               native: true,
@@ -133,11 +133,11 @@ export default function SelectRoom({handleNext}) {
         </Grid>
         <Grid item xs={12} sm={4}>
           <TextField
-            id="standard-select-currency-native"
             select
             label="Number of adults"
-            value={adultQuantity}
-            onChange={(e) => setAdultQuantity(e.target.value)}
+            value={adult}
+            name="adult"
+            onChange={handleChange}
             variant="outlined"
             SelectProps={{
               native: true,
@@ -156,8 +156,9 @@ export default function SelectRoom({handleNext}) {
             id="standard-select-currency-native"
             select
             label="Number of children"
-            value={childrenQuantity}
-            onChange={(e) => setChildrenQuantity(e.target.value)}
+            value={children}
+            name="children"
+            onChange={handleChange}
             variant="outlined"
             SelectProps={{
               native: true,
@@ -194,7 +195,11 @@ export default function SelectRoom({handleNext}) {
                       <Typography>{room.description}</Typography>
                     </CardContent>
                     <CardActions>
-                      <Button size="small" color="primary" onClick={() => handleNext({room})}>
+                      <Button
+                        size="small"
+                        color="primary"
+                        onClick={() => handleSelectRoom(room)}
+                      >
                         Reserve
                       </Button>
                     </CardActions>
@@ -213,4 +218,6 @@ export default function SelectRoom({handleNext}) {
       </Grid>
     </React.Fragment>
   );
-}
+};
+
+export default SelectRoom;
