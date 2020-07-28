@@ -38,9 +38,6 @@ export default function Review({ state }) {
 
   return (
     <React.Fragment>
-      <Typography variant="h6" gutterBottom>
-        Reservation summary
-      </Typography>
       <List disablePadding>
         <ListItem className={classes.listItem} key={room.name}>
           <ListItemText

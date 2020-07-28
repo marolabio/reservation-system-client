@@ -40,31 +40,58 @@ const Reservation = ({ reserve }) => {
     room: {},
     adult: 1,
     children: 0,
-    firstName: "",
-    lastName: "",
-    email: "",
-    firstNameError: "",
-    lastNameError: "",
-    emailError: "",
+    inputFocus: "",
+    form: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      confirmEmail: "",
+    },
+    formErrors: {
+      firstNameError: "",
+      lastNameError: "",
+      emailError: "",
+      confirmEmailError: "",
+    },
   });
   const { activeStep } = state;
 
   const validate = (e) => {
     const { name, value, id } = e.target;
+    let re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
     setState((prevState) => ({
       ...prevState,
-      [`${name}Error`]: value ? "" : `${id} is required`,
+      formErrors: {
+        ...prevState.formErrors,
+        [`${name}Error`]: !value
+          ? `${id} is required`
+          : name === "email" && !re.test(value)
+          ? "Invalid email address"
+          : name === "confirmEmail" && value !== state.form.email
+          ? "Email address do not match"
+          : "",
+      },
     }));
   };
 
   const nextStep = () => {
-    const { firstName, lastName, email } = state;
-
+    const { formErrors, form } = state;
     if (activeStep == 1) {
-      if (!firstName || !lastName || !email) {
+      const emptyInputKeys = Object.keys(form).filter((key) => {
+        return form[key] === "";
+      });
+
+      // Focus on the first input when input is empty
+      if (emptyInputKeys.length > 0) {
+        setState((prevState) => ({
+          ...prevState,
+          inputFocus: emptyInputKeys[0],
+        }));
         return;
       }
+
+      if (Object.values(formErrors).some((val) => val !== "")) return;
     }
 
     setState((prevState) => ({
@@ -84,7 +111,10 @@ const Reservation = ({ reserve }) => {
     const { name, value } = e.target;
     setState((prevState) => ({
       ...prevState,
-      [name]: value,
+      form: {
+        ...prevState.form,
+        [name]: value,
+      },
     }));
   };
 
@@ -124,7 +154,7 @@ const Reservation = ({ reserve }) => {
       checkin,
       checkout,
       children,
-      adult
+      adult,
     };
     reserve(params).then(() => nextStep());
   };
@@ -157,7 +187,6 @@ const Reservation = ({ reserve }) => {
     }
   };
 
-  console.log("state", state);
 
   return (
     <Content title="Reservations" loading={false}>

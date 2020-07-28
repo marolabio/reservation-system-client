@@ -14,6 +14,7 @@ import TextField from "@material-ui/core/TextField";
 import moment from "moment";
 import io from "socket.io-client";
 
+const BASE_URL = process.env.REACT_APP_BASE_URL;
 const socket = io(process.env.REACT_APP_BASE_URL);
 
 const useStyles = makeStyles((theme) => ({
@@ -85,9 +86,6 @@ const SelectRoom = ({ handleSelectRoom, handleChange, handleDateChange, nextStep
 
   return (
     <React.Fragment>
-      <Typography variant="h6" gutterBottom>
-        Select Room
-      </Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} sm={4}>
           <DatePicker
@@ -181,7 +179,7 @@ const SelectRoom = ({ handleSelectRoom, handleChange, handleDateChange, nextStep
                   <Card className={classes.card}>
                     <CardMedia
                       className={classes.cardMedia}
-                      image="https://source.unsplash.com/random"
+                      image={`${BASE_URL}${room.image.url}`}
                       title={room.name}
                     />
                     <CardContent className={classes.cardContent}>

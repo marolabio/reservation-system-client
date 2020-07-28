@@ -1,39 +1,42 @@
-import React from "react";
+import React, { useRef } from "react";
 import Grid from "@material-ui/core/Grid";
-import Typography from "@material-ui/core/Typography";
 import TextField from "@material-ui/core/TextField";
 
 export default function PersonalDetails({ handleChange, state, validate }) {
   const {
-    firstName,
-    lastName,
-    email,
-    firstNameError,
-    lastNameError,
-    emailError,
-    confirmEmailError,
+    inputFocus,
+    form: { firstName, lastName, email, confirmEmail },
+    formErrors: {
+      firstNameError,
+      lastNameError,
+      emailError,
+      confirmEmailError,
+    },
   } = state;
+  const inputRef = useRef([]);
+
+  let next = inputRef.current[inputFocus];
+  if (next) {
+    next.focus();
+  }
 
   return (
     <React.Fragment>
-      <Typography variant="h6" gutterBottom>
-        Personal Details
-      </Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} sm={6}>
           <TextField
             required
             variant="outlined"
             id="First name"
-            name="firstName"
             label="First name"
+            name="firstName"
             value={firstName}
             onChange={handleChange}
             fullWidth
             helperText={firstNameError}
             error={firstNameError}
             onBlur={validate}
-            autoFocus
+            inputRef={(el) => (inputRef.current["firstName"] = el)}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
@@ -41,41 +44,47 @@ export default function PersonalDetails({ handleChange, state, validate }) {
             required
             variant="outlined"
             id="Last name"
-            name="lastName"
             label="Last name"
+            name="lastName"
             value={lastName}
             onChange={handleChange}
             fullWidth
             helperText={lastNameError}
             error={lastNameError}
             onBlur={validate}
+            inputRef={(el) => (inputRef.current["lastName"] = el)}
           />
         </Grid>
         <Grid item xs={12}>
           <TextField
             variant="outlined"
             required
-            id="Email"
-            name="email"
+            id="Email Address"
             label="Email Address"
+            name="email"
             value={email}
             onChange={handleChange}
             fullWidth
             helperText={emailError}
             error={emailError}
             onBlur={validate}
+            inputRef={(el) => (inputRef.current["email"] = el)}
           />
         </Grid>
         <Grid item xs={12}>
           <TextField
             variant="outlined"
             required
-            id="emailConfirmation"
-            name="emailConfirmation"
+            id="Confirm Email Address"
             label="Confirm Email Address"
+            name="confirmEmail"
             fullWidth
+            value={confirmEmail}
+            onChange={handleChange}
             helperText={confirmEmailError}
+            error={confirmEmailError}
             onBlur={validate}
+            inputRef={(el) => (inputRef.current["confirmEmail"] = el)}
           />
         </Grid>
       </Grid>
