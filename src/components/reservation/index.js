@@ -71,6 +71,11 @@ const Reservation = ({ reserve }) => {
           : name === "confirmEmail" && value !== state.form.email
           ? "Email address do not match"
           : "",
+        confirmEmailError:
+          (state.form.confirmEmail && value !== state.form.confirmEmail) ||
+          (state.form.email && value !== state.form.email)
+            ? "Email address do not match"
+            : "",
       },
     }));
   };
@@ -111,6 +116,14 @@ const Reservation = ({ reserve }) => {
     const { name, value } = e.target;
     setState((prevState) => ({
       ...prevState,
+      [name]: value,
+    }));
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setState((prevState) => ({
+      ...prevState,
       form: {
         ...prevState.form,
         [name]: value,
@@ -130,21 +143,27 @@ const Reservation = ({ reserve }) => {
       ...prevState,
       room,
     }));
+
     nextStep();
   };
 
-  const handlePlaceReservation = (data) => {
+  const handleChangeRoom = () => {
+    setState((prevState) => ({
+      ...prevState,
+      room: {},
+    }));
+  };
+
+  const handlePlaceReservation = () => {
     const {
-      firstName,
-      lastName,
-      email,
+      form: { firstName, lastName, email },
       room,
       roomQuantity,
       checkin,
       checkout,
       children,
       adult,
-    } = data;
+    } = state;
 
     const params = {
       rooms: [{ id: room.id, quantity: roomQuantity }],
@@ -156,6 +175,8 @@ const Reservation = ({ reserve }) => {
       children,
       adult,
     };
+
+    // console.log("params", params)
     reserve(params).then(() => nextStep());
   };
 
@@ -165,6 +186,7 @@ const Reservation = ({ reserve }) => {
         return (
           <SelectRoom
             handleSelectRoom={handleSelectRoom}
+            handleChangeRoom={handleChangeRoom}
             handleChange={handleChange}
             handleDateChange={handleDateChange}
             nextStep={nextStep}
@@ -174,7 +196,7 @@ const Reservation = ({ reserve }) => {
       case 1:
         return (
           <PersonalDetails
-            handleChange={handleChange}
+            handleFormChange={handleFormChange}
             handleDateChange={handleDateChange}
             state={state}
             validate={validate}
@@ -187,6 +209,7 @@ const Reservation = ({ reserve }) => {
     }
   };
 
+  console.log("state", state);
 
   return (
     <Content title="Reservations" loading={false}>
@@ -201,12 +224,11 @@ const Reservation = ({ reserve }) => {
         {activeStep === steps.length ? (
           <React.Fragment>
             <Typography variant="h5" gutterBottom>
-              Reservation Successful!.
+              Reservation Successful!
             </Typography>
             <Typography variant="subtitle1">
-              Your transaction number is #2001539. We have emailed your
-              reservation confirmation, and will send you an update when your
-              reservation has shipped.
+              We will send you an update when your reservation has been
+              approved. Thank you
             </Typography>
           </React.Fragment>
         ) : (
@@ -223,7 +245,7 @@ const Reservation = ({ reserve }) => {
                     color="primary"
                     onClick={() => {
                       activeStep === steps.length - 1
-                        ? handlePlaceReservation(state)
+                        ? handlePlaceReservation()
                         : nextStep();
                     }}
                     className={classes.button}
@@ -233,6 +255,17 @@ const Reservation = ({ reserve }) => {
                       : "Next"}
                   </Button>
                 </React.Fragment>
+              )}
+
+              {activeStep === 0 && Object.keys(state.room).length !== 0 && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => nextStep()}
+                  className={classes.button}
+                >
+                  Next
+                </Button>
               )}
             </div>
           </React.Fragment>

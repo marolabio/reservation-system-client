@@ -1,8 +1,8 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import Grid from "@material-ui/core/Grid";
 import TextField from "@material-ui/core/TextField";
 
-export default function PersonalDetails({ handleChange, state, validate }) {
+export default function PersonalDetails({ handleFormChange, state, validate }) {
   const {
     inputFocus,
     form: { firstName, lastName, email, confirmEmail },
@@ -15,10 +15,12 @@ export default function PersonalDetails({ handleChange, state, validate }) {
   } = state;
   const inputRef = useRef([]);
 
-  let next = inputRef.current[inputFocus];
-  if (next) {
-    next.focus();
-  }
+  useEffect(() => {
+    let next = inputRef.current[inputFocus];
+    if (next) {
+      next.focus();
+    }
+  }, [inputFocus]);
 
   return (
     <React.Fragment>
@@ -31,7 +33,7 @@ export default function PersonalDetails({ handleChange, state, validate }) {
             label="First name"
             name="firstName"
             value={firstName}
-            onChange={handleChange}
+            onChange={handleFormChange}
             fullWidth
             helperText={firstNameError}
             error={firstNameError}
@@ -47,7 +49,7 @@ export default function PersonalDetails({ handleChange, state, validate }) {
             label="Last name"
             name="lastName"
             value={lastName}
-            onChange={handleChange}
+            onChange={handleFormChange}
             fullWidth
             helperText={lastNameError}
             error={lastNameError}
@@ -63,7 +65,7 @@ export default function PersonalDetails({ handleChange, state, validate }) {
             label="Email Address"
             name="email"
             value={email}
-            onChange={handleChange}
+            onChange={handleFormChange}
             fullWidth
             helperText={emailError}
             error={emailError}
@@ -80,7 +82,7 @@ export default function PersonalDetails({ handleChange, state, validate }) {
             name="confirmEmail"
             fullWidth
             value={confirmEmail}
-            onChange={handleChange}
+            onChange={handleFormChange}
             helperText={confirmEmailError}
             error={confirmEmailError}
             onBlur={validate}

@@ -31,9 +31,7 @@ export default function Review({ state }) {
     room,
     adult,
     children,
-    firstName,
-    lastName,
-    email,
+    form: { firstName, lastName, email },
   } = state;
 
   return (
