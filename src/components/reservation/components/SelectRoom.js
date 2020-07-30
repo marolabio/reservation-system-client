@@ -102,14 +102,17 @@ const SelectRoom = ({
       checkout,
       reserved_room: [{ id: room.id, quantity: state.roomQuantity }],
     };
-    socket.emit("select-room", reservationDetails, () => {
-      handleSelectRoom(room);
-    });
+    localStorage.setItem(
+      "RESERVATION_DETAILS",
+      JSON.stringify(reservationDetails)
+    );
+    handleSelectRoom(room);
   };
 
   useEffect(() => {
     setLoading(true);
-    socket.emit("get-reserved-rooms");
+    let reservationDetails = localStorage.getItem("RESERVATION_DETAILS");
+    socket.emit("get-reserved-rooms", JSON.parse(reservationDetails));
 
     socket.on("get-reserved-rooms", (data) => {
       setData(data);
