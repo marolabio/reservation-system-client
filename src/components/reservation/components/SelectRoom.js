@@ -11,7 +11,6 @@ import Divider from "@material-ui/core/Divider";
 import { makeStyles } from "@material-ui/core/styles";
 import Skeleton from "@material-ui/lab/Skeleton";
 import TextField from "@material-ui/core/TextField";
-import Paper from "@material-ui/core/Paper";
 import moment from "moment";
 import io from "socket.io-client";
 
@@ -34,7 +33,6 @@ const useStyles = makeStyles((theme) => ({
   cardContent: {
     flexGrow: 1,
   },
-
   root: {
     display: "flex",
     justifyContent: "space-between",
@@ -61,7 +59,7 @@ const SelectRoom = ({
   const classes = useStyles();
   const [data, setData] = useState({ rooms: [], reservedRooms: [] });
   const [loading, setLoading] = useState(true);
-  const { checkin, checkout, roomQuantity, room, adult, children } = state;
+  const { checkin, checkout, roomQuantity, adult, children } = state;
   const { rooms, reservedRooms } = data;
 
   const filteredReservedRooms = reservedRooms
@@ -74,9 +72,18 @@ const SelectRoom = ({
 
   const filteredRooms = rooms
     .map((room) => {
-      let object = filteredReservedRooms.find((value) => value.id === room.id);
-      return object
-        ? { ...room, quantity: room.quantity - object.quantity }
+      let matchReservedRooms = filteredReservedRooms.filter(
+        (value) => value.id === room.id
+      );
+      const quantityCount = matchReservedRooms.reduce((total, { quantity }) => {
+        return total + quantity;
+      }, 0);
+
+      return matchReservedRooms
+        ? {
+            ...room,
+            quantity: parseInt(room.quantity) - parseInt(quantityCount),
+          }
         : room;
     })
     .filter((room) => room.occupancy >= adult || room.quantity <= roomQuantity);
@@ -100,19 +107,17 @@ const SelectRoom = ({
     const reservationDetails = {
       checkin,
       checkout,
-      reserved_room: [{ id: room.id, quantity: state.roomQuantity }],
+      reserved_room: [{ id: room.id, quantity: parseInt(state.roomQuantity) }],
     };
-    localStorage.setItem(
-      "RESERVATION_DETAILS",
-      JSON.stringify(reservationDetails)
-    );
-    handleSelectRoom(room);
+
+    socket.emit("get-reserved-rooms", reservationDetails, () => {
+      handleSelectRoom(room);
+    });
   };
 
   useEffect(() => {
     setLoading(true);
-    let reservationDetails = localStorage.getItem("RESERVATION_DETAILS");
-    socket.emit("get-reserved-rooms", JSON.parse(reservationDetails));
+    socket.emit("get-reserved-rooms");
 
     socket.on("get-reserved-rooms", (data) => {
       setData(data);
@@ -259,7 +264,10 @@ const SelectRoom = ({
                 <Button
                   size="small"
                   color="primary"
-                  onClick={() => handleChangeRoom(state.room)}
+                  onClick={() => {
+                    handleChangeRoom(state.room);
+                    socket.emit("change-room");
+                  }}
                 >
                   Change
                 </Button>

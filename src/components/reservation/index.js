@@ -58,8 +58,9 @@ const Reservation = ({ reserve }) => {
 
   const validate = (e) => {
     const { name, value, id } = e.target;
-    let re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    let re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; //eslint-disable-line
 
+    // Conditional validations
     setState((prevState) => ({
       ...prevState,
       formErrors: {
@@ -82,12 +83,12 @@ const Reservation = ({ reserve }) => {
 
   const nextStep = () => {
     const { formErrors, form } = state;
-    if (activeStep == 1) {
+    if (activeStep === 1) {
       const emptyInputKeys = Object.keys(form).filter((key) => {
         return form[key] === "";
       });
 
-      // Focus on the first input when input is empty
+      // Input focus on the first input when input is empty
       if (emptyInputKeys.length > 0) {
         setState((prevState) => ({
           ...prevState,
@@ -176,7 +177,6 @@ const Reservation = ({ reserve }) => {
       adult,
     };
 
-    // console.log("params", params)
     reserve(params).then(() => nextStep());
   };
 

@@ -30,7 +30,6 @@ export default function Review({ state }) {
     roomQuantity,
     room,
     adult,
-    children,
     form: { firstName, lastName, email },
   } = state;
 
