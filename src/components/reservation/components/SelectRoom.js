@@ -221,7 +221,7 @@ const SelectRoom = ({
       {/* <Container className={classes.cardGrid} maxWidth="md"> */}
       {Object.keys(state.room).length !== 0 ? (
         <Grid container spacing={3}>
-          <Grid item xs={4}>
+          <Grid item xs={12} md={4}>
             <Card className={classes.root}>
               <CardContent className={classes.content}>
                 <Typography variant="h5" gutterBottom>
@@ -245,7 +245,7 @@ const SelectRoom = ({
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={8}>
+          <Grid item xs={12} md={8}>
             <Card className={classes.root}>
               <div className={classes.details}>
                 <CardContent className={classes.content}>
