@@ -70,7 +70,7 @@ const SelectRoom = ({
     )
     .flatMap((res) => res.reserved_room);
 
-  const filteredRooms = rooms
+  let filteredRooms = rooms
     .map((room) => {
       let matchReservedRooms = filteredReservedRooms.filter(
         (value) => value.id === room.id
@@ -110,20 +110,22 @@ const SelectRoom = ({
       reserved_room: [{ id: room.id, quantity: parseInt(state.roomQuantity) }],
     };
 
-    socket.emit("get-reserved-rooms", reservationDetails, () => {
+    socket.emit("reservations", reservationDetails, () => {
       handleSelectRoom(room);
     });
   };
 
   useEffect(() => {
     setLoading(true);
-    socket.emit("get-reserved-rooms");
+    socket.emit("reservations");
 
-    socket.on("get-reserved-rooms", (data) => {
+    socket.on("reservations", (data) => {
       setData(data);
       setLoading(false);
     });
   }, []);
+
+  filteredRooms = filteredRooms.filter((room) => room.quantity > 0);
 
   return (
     <React.Fragment>
@@ -218,7 +220,6 @@ const SelectRoom = ({
         </Grid>
       )}
 
-      {/* <Container className={classes.cardGrid} maxWidth="md"> */}
       {Object.keys(state.room).length !== 0 ? (
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
@@ -266,7 +267,7 @@ const SelectRoom = ({
                   color="primary"
                   onClick={() => {
                     handleChangeRoom(state.room);
-                    socket.emit("change-room");
+                    socket.emit("remove-client-reservations");
                   }}
                 >
                   Change
@@ -327,7 +328,6 @@ const SelectRoom = ({
           )}
         </Grid>
       )}
-      {/* </Container> */}
     </React.Fragment>
   );
 };

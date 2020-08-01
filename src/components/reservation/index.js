@@ -12,6 +12,9 @@ import Review from "./components/Review";
 import Content from "../layout/Content";
 import moment from "moment";
 import { reserve } from "./../../actions/reservation";
+import io from "socket.io-client";
+
+const socket = io(process.env.REACT_APP_BASE_URL);
 
 const steps = ["Select room", "Enter personal details", "Review reservation"];
 
@@ -177,7 +180,10 @@ const Reservation = ({ reserve }) => {
       adult,
     };
 
-    reserve(params).then(() => nextStep());
+    reserve(params).then(() => {
+      nextStep();
+      socket.emit("remove-client-reservations");
+    });
   };
 
   const getStepContent = (step) => {
@@ -209,7 +215,7 @@ const Reservation = ({ reserve }) => {
     }
   };
 
-  console.log("state", state);
+  // console.log("state", state);
 
   return (
     <Content title="Reservations" loading={false}>
