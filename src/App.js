@@ -6,7 +6,8 @@ import PrivateRoute from "./components/routing/PrivateRoute";
 import setAuthToken from "./utils/setAuthToken";
 import { loadUser } from "./actions/auth";
 import history from "./components/routing/history";
-import Reservations from "./components/reservation";
+import Reservation from "./components/reservation";
+import Customer from "./components/customer";
 import { CssBaseline } from "@material-ui/core";
 import { MuiPickersUtilsProvider } from "@material-ui/pickers";
 import MomentUtils from "@date-io/moment";
@@ -36,7 +37,8 @@ const App = () => {
             <Route exact path="/" component={Login} />
             <Route exact path="/forgot-password" component={ForgotPassword} />
             <PrivateRoute exact path="/dashboard" component={Dashboard} />
-            <PrivateRoute exact path="/reservations" component={Reservations} />
+            <PrivateRoute exact path="/reservations" component={Reservation} />
+            <PrivateRoute exact path="/customers" component={Customer} />
           </Switch>
         </MuiPickersUtilsProvider>
       </Router>

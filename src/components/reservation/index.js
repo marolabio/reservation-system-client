@@ -47,12 +47,14 @@ const Reservation = ({ reserve }) => {
     form: {
       firstName: "",
       lastName: "",
+      contactNumber: "",
       email: "",
       confirmEmail: "",
     },
     formErrors: {
       firstNameError: "",
       lastNameError: "",
+      contactNumberError: "",
       emailError: "",
       confirmEmailError: "",
     },
@@ -160,7 +162,7 @@ const Reservation = ({ reserve }) => {
 
   const handlePlaceReservation = () => {
     const {
-      form: { firstName, lastName, email },
+      form: { firstName, lastName, email, contactNumber },
       room,
       roomQuantity,
       checkin,
@@ -173,6 +175,7 @@ const Reservation = ({ reserve }) => {
       rooms: [{ id: room.id, quantity: roomQuantity }],
       firstName,
       lastName,
+      contactNumber,
       email,
       checkin,
       checkout,

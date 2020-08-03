@@ -5,12 +5,13 @@ import TextField from "@material-ui/core/TextField";
 export default function PersonalDetails({ handleFormChange, state, validate }) {
   const {
     inputFocus,
-    form: { firstName, lastName, email, confirmEmail },
+    form: { firstName, lastName, email, confirmEmail, contactNumber },
     formErrors: {
       firstNameError,
       lastNameError,
       emailError,
       confirmEmailError,
+      contactNumberError,
     },
   } = state;
   const inputRef = useRef([]);
@@ -55,6 +56,22 @@ export default function PersonalDetails({ handleFormChange, state, validate }) {
             error={lastNameError}
             onBlur={validate}
             inputRef={(el) => (inputRef.current["lastName"] = el)}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            variant="outlined"
+            required
+            id="Contact Number"
+            label="Contact Number"
+            name="contactNumber"
+            value={contactNumber}
+            onChange={handleFormChange}
+            fullWidth
+            helperText={contactNumberError}
+            error={contactNumberError}
+            onBlur={validate}
+            inputRef={(el) => (inputRef.current["contactNumber"] = el)}
           />
         </Grid>
         <Grid item xs={12}>

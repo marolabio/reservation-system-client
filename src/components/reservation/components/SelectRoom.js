@@ -288,43 +288,44 @@ const SelectRoom = ({
               Available Rooms
             </Typography>
           </Grid>
-          {(loading ? Array.from(new Array(3)) : filteredRooms).map((room) =>
-            room ? (
-              <Grid item key={room.id} xs={12} sm={6} md={4}>
-                <Card className={classes.card}>
-                  <CardMedia
-                    className={classes.cardMedia}
-                    image={`${BASE_URL}${room.image.url}`}
-                    title={room.name}
-                  />
-                  <CardContent className={classes.cardContent}>
-                    <Typography gutterBottom variant="h5" component="h2">
-                      {room.name}
-                    </Typography>
-                    <Typography color="error">
-                      Only {room.quantity} rooms left
-                    </Typography>
-                    <Typography>Occupancy: {room.occupancy}</Typography>
-                    <Typography>{room.description}</Typography>
-                  </CardContent>
-                  <CardActions>
-                    <Button
-                      size="small"
-                      color="primary"
-                      onClick={() => handleSelectRoomEmit(room)}
-                    >
-                      Reserve
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ) : (
-              <Grid item xs={12} sm={6} md={4}>
-                <Skeleton variant="rect" width="100%" height="60%" />
-                <Skeleton width="100%" />
-                <Skeleton width="60%" />
-              </Grid>
-            )
+          {(loading ? Array.from(new Array(3)) : filteredRooms).map(
+            (room, index) =>
+              room ? (
+                <Grid item key={room.id} xs={12} sm={6} md={4}>
+                  <Card className={classes.card}>
+                    <CardMedia
+                      className={classes.cardMedia}
+                      image={`${BASE_URL}${room.image.url}`}
+                      title={room.name}
+                    />
+                    <CardContent className={classes.cardContent}>
+                      <Typography gutterBottom variant="h5" component="h2">
+                        {room.name}
+                      </Typography>
+                      <Typography color="error">
+                        Only {room.quantity} rooms left
+                      </Typography>
+                      <Typography>Occupancy: {room.occupancy}</Typography>
+                      <Typography>{room.description}</Typography>
+                    </CardContent>
+                    <CardActions>
+                      <Button
+                        size="small"
+                        color="primary"
+                        onClick={() => handleSelectRoomEmit(room)}
+                      >
+                        Reserve
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              ) : (
+                <Grid key={index} item xs={12} sm={6} md={4}>
+                  <Skeleton variant="rect" width="100%" height="60%" />
+                  <Skeleton width="100%" />
+                  <Skeleton width="60%" />
+                </Grid>
+              )
           )}
         </Grid>
       )}
