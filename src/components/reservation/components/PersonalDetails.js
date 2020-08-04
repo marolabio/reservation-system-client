@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import Grid from "@material-ui/core/Grid";
 import TextField from "@material-ui/core/TextField";
+import Typography from "@material-ui/core/Typography";
 
 export default function PersonalDetails({ handleFormChange, state, validate }) {
   const {
@@ -105,6 +106,14 @@ export default function PersonalDetails({ handleFormChange, state, validate }) {
             onBlur={validate}
             inputRef={(el) => (inputRef.current["confirmEmail"] = el)}
           />
+        </Grid>
+        <Grid item xs={12}>
+          <Typography variant="body2" gutterBottom>
+            Note: In order to effectively use our services and system, we
+            require our customers to provide a valid email address for
+            communication purposes. Rest assured, all the data registered in our
+            system is private and confidential.
+          </Typography>
         </Grid>
       </Grid>
     </React.Fragment>

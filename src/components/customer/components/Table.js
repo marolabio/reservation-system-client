@@ -13,6 +13,7 @@ import TableRow from "@material-ui/core/TableRow";
 import Paper from "@material-ui/core/Paper";
 import KeyboardArrowDownIcon from "@material-ui/icons/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@material-ui/icons/KeyboardArrowUp";
+import moment from "moment";
 
 const useRowStyles = makeStyles({
   root: {
@@ -45,7 +46,12 @@ function Row(props) {
         <TableCell align="right">{row.email}</TableCell>
         <TableCell align="right">{row.contactNumber}</TableCell>
         <TableCell align="right">{row.status}</TableCell>
-        <TableCell align="right">{row.balance}</TableCell>
+        <TableCell align="right">{row.checkin}</TableCell>
+        <TableCell align="right">{row.checkout}</TableCell>
+        <TableCell align="right">
+          {moment(row.checkout).diff(row.checkin, "days")}
+        </TableCell>
+        <TableCell>{row.balance}</TableCell>
       </TableRow>
       <TableRow>
         <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
@@ -56,6 +62,8 @@ function Row(props) {
                   <TableRow>
                     <TableCell>Room Type</TableCell>
                     <TableCell>Room Quantity</TableCell>
+                    <TableCell>Rate</TableCell>
+                    <TableCell>Amount</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -65,6 +73,11 @@ function Row(props) {
                         {room.name}
                       </TableCell>
                       <TableCell>{room.reserved_quantity}</TableCell>
+                      <TableCell>{room.rate}</TableCell>
+                      <TableCell>
+                        {parseFloat(room.rate) *
+                          parseFloat(room.reserved_quantity)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -84,6 +97,7 @@ Row.propTypes = {
       PropTypes.shape({
         id: PropTypes.string.isRequired,
         name: PropTypes.string.isRequired,
+        rate: PropTypes.number.isRequired,
         reserved_quantity: PropTypes.number.isRequired,
       })
     ).isRequired,
@@ -103,11 +117,14 @@ export default function CollapsibleTable({ reservations }) {
       email,
       contactNumber: contact_number,
       status: res.status,
+      checkin: res.checkin,
+      checkout: res.checkout,
       balance: 2000,
       reservedRoom: res.reserved_room.map(
-        ({ id, room: { name }, reserved_quantity }) => ({
+        ({ id, room: { name, rate }, reserved_quantity }) => ({
           id,
           name,
+          rate,
           reserved_quantity,
         })
       ),
@@ -124,7 +141,10 @@ export default function CollapsibleTable({ reservations }) {
             <TableCell align="right">Email</TableCell>
             <TableCell align="right">Contact Number</TableCell>
             <TableCell align="right">Status</TableCell>
-            <TableCell align="right">Balance</TableCell>
+            <TableCell align="right">Checkin</TableCell>
+            <TableCell align="right">Checkout</TableCell>
+            <TableCell align="right">Nights</TableCell>
+            <TableCell>Balance</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
