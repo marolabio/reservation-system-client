@@ -26,18 +26,20 @@ export const reserve = (body) => async (dispatch) => {
     });
 };
 
-export const getReservations = () => async (dispatch) => {
+export const getReservations = (params = {}) => async (dispatch) => {
   return await api
-    .get("/reservations")
+    .get(`/reservations${params.limit ? `?_limit=${params.limit}` : ""}`)
     .then((res) => {
       dispatch({
         type: GET_RESERVATION_SUCCESS,
         payload: res.data,
       });
+      return { error: false };
     })
     .catch((err) => {
       dispatch({
         type: GET_RESERVATION_FAIL,
       });
+      return { error: true };
     });
 };

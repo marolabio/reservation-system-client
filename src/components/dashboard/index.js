@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { connect } from "react-redux";
 import { makeStyles } from "@material-ui/core/styles";
 import clsx from "clsx";
 import { Paper, Grid } from "@material-ui/core";
 import Chart from "./components/Chart";
 import Deposits from "./components/Deposits";
-import Orders from "./components/Orders";
+import Customers from "./components/Customers";
 import Content from "./../layout/Content";
+import { getReservations } from "../../actions/reservation";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -19,12 +21,18 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const Dashboard = () => {
+const Dashboard = ({ reservations, getReservations }) => {
   const classes = useStyles();
   const fixedHeightPaper = clsx(classes.paper, classes.fixedHeight);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    getReservations({ limit: 5 }).then(() => setLoading(false));
+  }, [getReservations]);
 
   return (
-    <Content title="Dashboard">
+    <Content title="Dashboard" loading={loading}>
       <Grid container spacing={3}>
         {/* Chart */}
         <Grid item xs={12} md={8} lg={9}>
@@ -41,7 +49,7 @@ const Dashboard = () => {
         {/* Recent Orders */}
         <Grid item xs={12}>
           <Paper className={classes.paper}>
-            <Orders />
+            <Customers reservations={reservations} />
           </Paper>
         </Grid>
       </Grid>
@@ -49,4 +57,8 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+const mapStateToProps = (state) => ({
+  reservations: state.reservation.reservations,
+});
+
+export default connect(mapStateToProps, { getReservations })(Dashboard);

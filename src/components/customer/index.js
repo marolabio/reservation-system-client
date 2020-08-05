@@ -6,7 +6,6 @@ import { getReservations } from "../../actions/reservation";
 
 function Customer({ reservations, getReservations }) {
   const [loading, setLoading] = useState(false);
-  console.log("reservations", reservations);
   useEffect(() => {
     setLoading(true);
     getReservations().then(() => setLoading(false));
