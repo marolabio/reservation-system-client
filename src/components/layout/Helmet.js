@@ -1,14 +1,15 @@
 import React from "react";
-import { Helmet as ReactHelmet } from "react-helmet";
+import Head from "next/head";
 import PropTypes from "prop-types";
 
 function Helmet({ children, title, description, keywords }) {
   return (
-    <ReactHelmet>
+    <Head>
       <title>{title}</title>
-      <meta name="description" content={description} />
-      <meta name="keywords" content={keywords} />
-    </ReactHelmet>
+      {description && <meta name="description" content={description} />}
+      {keywords && <meta name="keywords" content={keywords.join(",")} />}
+      {children}
+    </Head>
   );
 }
 

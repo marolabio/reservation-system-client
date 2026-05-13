@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { Redirect, Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import { connect } from "react-redux";
 import { setAlert } from "../../actions/alert";
-import { login } from "../../actions/auth";
+import { loadUser, login } from "../../actions/auth";
 import PropTypes from "prop-types";
 
 import Avatar from "@material-ui/core/Avatar";
@@ -62,14 +63,26 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const SignInSide = (props) => {
+  const { isAuthenticated, loading, loadUser } = props;
+  const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const classes = useStyles();
 
   const { email, password } = formData;
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, loading, router]);
 
   const onChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -79,18 +92,14 @@ const SignInSide = (props) => {
     e.preventDefault();
 
     if (email && password) {
-      setLoading(true);
+      setSubmitting(true);
       props
         .login({ identifier: email, password })
-        .then(() => setLoading(false));
+        .then(() => setSubmitting(false));
     } else {
       props.setAlert("Email and password are required.", "error");
     }
   };
-
-  // Redirect if logged in
-  if (props.isAuthenticated && !props.loading)
-    return <Redirect to="/dashboard" />;
 
   return (
     <Grid container component="main" className={classes.root}>
@@ -142,10 +151,10 @@ const SignInSide = (props) => {
               variant="contained"
               color="primary"
               className={classes.submit}
-              disabled={loading}
+              disabled={submitting}
             >
               Sign In
-              {loading && (
+              {submitting && (
                 <CircularProgress
                   size={24}
                   className={classes.buttonProgress}
@@ -154,7 +163,7 @@ const SignInSide = (props) => {
             </Button>
             <Grid container>
               <Grid item xs>
-                <Link to="/forgot-password">Forgot password?</Link>
+                <Link href="/forgot-password">Forgot password?</Link>
               </Grid>
             </Grid>
             <Box mt={5}>
@@ -170,12 +179,14 @@ const SignInSide = (props) => {
 SignInSide.propTypes = {
   setAlert: PropTypes.func.isRequired,
   login: PropTypes.func.isRequired,
+  loadUser: PropTypes.func.isRequired,
   isAuthenticated: PropTypes.bool,
   loading: PropTypes.bool,
 };
 
 const mapStateToProps = (state) => ({
   isAuthenticated: state.auth.isAuthenticated,
+  loading: state.auth.loading,
 });
 
-export default connect(mapStateToProps, { setAlert, login })(SignInSide);
+export default connect(mapStateToProps, { setAlert, loadUser, login })(SignInSide);

@@ -1,4 +1,5 @@
 import React from "react";
+import { useRouter } from "next/router";
 import PropTypes from "prop-types";
 import clsx from "clsx";
 import { connect } from "react-redux";
@@ -87,6 +88,7 @@ const useStyles = makeStyles((theme) => ({
 
 function SideBar({ logout, title }) {
   const classes = useStyles();
+  const router = useRouter();
   const [open, setOpen] = React.useState(true);
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -148,7 +150,13 @@ function SideBar({ logout, title }) {
         <List>{secondaryListItems}</List>
         <Divider />
         <List>
-          <ListItem button onClick={() => logout()}>
+          <ListItem
+            button
+            onClick={() => {
+              logout();
+              router.push("/");
+            }}
+          >
             <ListItemIcon>
               <ExitToAppIcon />
             </ListItemIcon>

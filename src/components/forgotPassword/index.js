@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { setAlert } from "../../actions/alert";
@@ -79,7 +79,7 @@ const ForgotPassword = (props) => {
           align="center"
           color="textSecondary"
         >
-          Enter your email address and we'll send you a link to reset your
+          Enter your email address and we&apos;ll send you a link to reset your
           password
         </Typography>
         <form className={classes.form} noValidate onSubmit={(e) => onSubmit(e)}>
@@ -108,7 +108,7 @@ const ForgotPassword = (props) => {
               <CircularProgress size={24} className={classes.buttonProgress} />
             )}
           </Button>
-          <Link to="/">Return to sign in page</Link>
+          <Link href="/">Return to sign in page</Link>
         </form>
       </div>
       <Box mt={8}>

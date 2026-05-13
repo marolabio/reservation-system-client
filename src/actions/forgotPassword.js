@@ -1,5 +1,5 @@
 import { setAlert } from "./alert";
-import api from "../utils/api";
+import supabase from "../utils/supabase";
 
 import {
   FORGOT_PASSWORD_SUCCESS,
@@ -7,21 +7,20 @@ import {
 } from "./types";
 
 export const forgotPassword = (body) => async (dispatch) => {
-  return await api
-    .post("/auth/forgot-password", body)
-    .then((res) => {
-      dispatch({
-        type: FORGOT_PASSWORD_SUCCESS,
-        payload: res.data,
-      });
-    })
-    .catch((err) => {
-      dispatch(setAlert("Email invalid.", "error"));
+  const { data, error } = await supabase.auth.resetPasswordForEmail(body.email);
 
-      dispatch({
-        type: FORGOT_PASSWORD_FAIL,
-      });
+  if (error) {
+    dispatch(setAlert("Email invalid.", "error"));
+    dispatch({
+      type: FORGOT_PASSWORD_FAIL,
     });
+    return;
+  }
+
+  dispatch({
+    type: FORGOT_PASSWORD_SUCCESS,
+    payload: data,
+  });
 };
 
 

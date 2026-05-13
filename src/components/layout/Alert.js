@@ -1,8 +1,7 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { connect } from "react-redux";
-import { Alert as MuiAlert } from "@material-ui/lab/";
-import Snackbar from "@material-ui/core/Snackbar";
+import { Alert as MuiAlert, Snackbar } from "@mui/material";
 import { removeAlert } from "./../../actions/alert";
 
 const Alert = ({ alerts, removeAlert }) => {

@@ -1,6 +1,5 @@
 import { setAlert } from "./alert";
-import setAuthToken from "../utils/setAuthToken";
-import api from "../utils/api";
+import supabase from "../utils/supabase";
 
 import {
   LOGIN_SUCCESS,
@@ -11,44 +10,44 @@ import {
 } from "./types";
 
 export const loadUser = () => async (dispatch) => {
-  if (localStorage.token) {
-    setAuthToken(localStorage.token);
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    dispatch({
+      type: AUTH_ERROR,
+    });
+    return;
   }
 
-  return await api
-    .get("/users/me")
-    .then((res) => {
-      dispatch({
-        type: USER_LOADED,
-        payload: res.data,
-      });
-    })
-    .catch((err) => {
-      dispatch({
-        type: AUTH_ERROR,
-      });
-    });
+  dispatch({
+    type: USER_LOADED,
+    payload: data.user,
+  });
 };
 
 export const login = (body) => async (dispatch) => {
-  return await api
-    .post("/auth/local", body)
-    .then((res) => {
-      dispatch({
-        type: LOGIN_SUCCESS,
-        payload: res.data,
-      });
-    })
-    .catch((err) => {
-      dispatch(setAlert("Email or password invalid.", "error"));
+  const email = body.email || body.identifier;
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: body.password,
+  });
 
-      dispatch({
-        type: LOGIN_FAIL,
-      });
+  if (error) {
+    dispatch(setAlert("Email or password invalid.", "error"));
+    dispatch({
+      type: LOGIN_FAIL,
     });
+    return;
+  }
+
+  dispatch({
+    type: LOGIN_SUCCESS,
+    payload: data,
+  });
 };
 
 // Logout
-export const logout = () => (dispatch) => {
+export const logout = () => async (dispatch) => {
+  await supabase.auth.signOut();
   dispatch({ type: LOGOUT });
 };

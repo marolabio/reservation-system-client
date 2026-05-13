@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { makeStyles } from "@material-ui/core/styles";
 import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
@@ -58,7 +58,7 @@ export default function Customers({ reservations }) {
         </TableBody>
       </Table>
       <div className={classes.seeMore}>
-        <Link className={classes.link} to="customers">
+        <Link className={classes.link} href="/customers">
           See more customers
         </Link>
       </div>

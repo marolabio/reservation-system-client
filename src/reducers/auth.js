@@ -5,11 +5,8 @@ import {
   AUTH_ERROR,
   LOGOUT,
 } from "./../actions/types";
-import api from "./../utils/api";
-
-
 const initialState = {
-  token: localStorage.getItem("token"),
+  token: typeof window !== "undefined" ? localStorage.getItem("token") : null,
   user: null,
   isAuthenticated: null,
   loading: true,
@@ -27,12 +24,11 @@ export default function (state = initialState, action) {
         user: payload,
       };
     case LOGIN_SUCCESS:
-      localStorage.setItem("token", payload.jwt);
-
+      localStorage.setItem("token", payload.session.access_token);
 
       return {
         ...state,
-        token: payload.jwt,
+        token: payload.session.access_token,
         user: payload.user,
         isAuthenticated: true,
         loading: false,
@@ -41,7 +37,6 @@ export default function (state = initialState, action) {
     case AUTH_ERROR:
     case LOGOUT:
       localStorage.removeItem("token");
-      delete api.defaults.headers.common["Authorization"];
 
       return {
         ...state,

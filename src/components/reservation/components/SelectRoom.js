@@ -12,10 +12,15 @@ import { makeStyles } from "@material-ui/core/styles";
 import Skeleton from "@material-ui/lab/Skeleton";
 import TextField from "@material-ui/core/TextField";
 import moment from "moment";
-import io from "socket.io-client";
+import supabase from "../../../utils/supabase";
 
-const BASE_URL = process.env.REACT_APP_BASE_URL;
-const socket = io(process.env.REACT_APP_BASE_URL);
+const getRoomImage = (image) => {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+  if (image.url && image.url.startsWith("http")) return image.url;
+  if (image.publicUrl) return image.publicUrl;
+  return image.url || "";
+};
 
 const useStyles = makeStyles((theme) => ({
   cardGrid: {
@@ -86,7 +91,11 @@ const SelectRoom = ({
           }
         : room;
     })
-    .filter((room) => room.occupancy >= adult || room.quantity <= roomQuantity);
+    .filter(
+      (room) =>
+        parseInt(room.occupancy) >= parseInt(adult) &&
+        parseInt(room.quantity) >= parseInt(roomQuantity)
+    );
 
   const maxRoomQuantity =
     filteredRooms.length > 0
@@ -104,25 +113,39 @@ const SelectRoom = ({
       : [0];
 
   const handleSelectRoomEmit = (room) => {
-    const reservationDetails = {
-      checkin,
-      checkout,
-      reserved_room: [{ id: room.id, quantity: parseInt(state.roomQuantity) }],
-    };
-
-    socket.emit("reservations", reservationDetails, () => {
-      handleSelectRoom(room);
-    });
+    handleSelectRoom(room);
   };
 
   useEffect(() => {
-    setLoading(true);
-    socket.emit("reservations");
+    async function loadAvailability() {
+      setLoading(true);
+      const [
+        { data: rooms, error: roomsError },
+        { data: reservations, error: reservationsError },
+      ] = await Promise.all([
+        supabase.from("rooms").select("*").order("name", { ascending: true }),
+        supabase
+          .from("reservations")
+          .select("id, checkin, checkout, reserved_rooms(room_id, reserved_quantity)")
+          .in("status", ["pending", "approved"]),
+      ]);
 
-    socket.on("reservations", (data) => {
-      setData(data);
+      if (!roomsError && !reservationsError) {
+        setData({
+          rooms: rooms || [],
+          reservedRooms: (reservations || []).map((reservation) => ({
+            ...reservation,
+            reserved_room: (reservation.reserved_rooms || []).map((room) => ({
+              id: room.room_id,
+              quantity: room.reserved_quantity,
+            })),
+          })),
+        });
+      }
       setLoading(false);
-    });
+    }
+
+    loadAvailability();
   }, []);
 
   filteredRooms = filteredRooms.filter((room) => room.quantity > 0);
@@ -267,7 +290,6 @@ const SelectRoom = ({
                   color="primary"
                   onClick={() => {
                     handleChangeRoom(state.room);
-                    socket.emit("remove-client-reservations");
                   }}
                 >
                   Change
@@ -275,7 +297,7 @@ const SelectRoom = ({
               </CardActions>
               <CardMedia
                 className={classes.cover}
-                image={`${BASE_URL}${state.room.image.url}`}
+                image={getRoomImage(state.room.image)}
                 title={state.room.name}
               />
             </Card>
@@ -295,7 +317,7 @@ const SelectRoom = ({
                   <Card className={classes.card}>
                     <CardMedia
                       className={classes.cardMedia}
-                      image={`${BASE_URL}${room.image.url}`}
+                      image={getRoomImage(room.image)}
                       title={room.name}
                     />
                     <CardContent className={classes.cardContent}>
