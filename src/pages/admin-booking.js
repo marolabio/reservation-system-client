@@ -270,6 +270,15 @@ export default function AdminBookingPage() {
               >
                 New booking
               </Button>
+              <Button
+                href="/calendar"
+                variant={
+                  router.pathname === "/calendar" ? "contained" : "outlined"
+                }
+                size="small"
+              >
+                Calendar
+              </Button>
             </Stack>
           </Box>
           <Button variant="outlined" size="small" onClick={handleLogout} sx={{ alignSelf: "flex-start", flexShrink: 0 }}>

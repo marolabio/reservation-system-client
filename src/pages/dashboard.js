@@ -198,6 +198,9 @@ export default function DashboardPage() {
               <Button href="/admin-booking" variant={router.pathname === "/admin-booking" ? "contained" : "outlined"} size="small">
                 New booking
               </Button>
+              <Button href="/calendar" variant={router.pathname === "/calendar" ? "contained" : "outlined"} size="small">
+                Calendar
+              </Button>
             </Stack>
           </Box>
           <Button variant="outlined" size="small" onClick={handleLogout} sx={{ alignSelf: "flex-start", flexShrink: 0 }}>
