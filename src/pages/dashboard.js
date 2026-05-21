@@ -180,26 +180,29 @@ export default function DashboardPage() {
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", py: { xs: 3, md: 5 } }}>
       <Container maxWidth="lg">
         <Stack
-          direction={{ xs: "column", md: "row" }}
+          direction="row"
           justifyContent="space-between"
-          alignItems={{ xs: "stretch", md: "center" }}
+          alignItems="flex-start"
           spacing={2}
           sx={{ mb: 3 }}
         >
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
               Reservations dashboard
             </Typography>
             <Typography color="text.secondary">Review bookings and confirm or cancel requests.</Typography>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5, flexWrap: "wrap" }}>
+              <Button href="/dashboard" variant={router.pathname === "/dashboard" ? "contained" : "outlined"} size="small">
+                Dashboard
+              </Button>
+              <Button href="/admin-booking" variant={router.pathname === "/admin-booking" ? "contained" : "outlined"} size="small">
+                New booking
+              </Button>
+            </Stack>
           </Box>
-          <Stack direction="row" spacing={1}>
-            <Button href="/" variant="outlined">
-              Booking page
-            </Button>
-            <Button variant="contained" onClick={handleLogout}>
-              Sign out
-            </Button>
-          </Stack>
+          <Button variant="outlined" size="small" onClick={handleLogout} sx={{ alignSelf: "flex-start", flexShrink: 0 }}>
+            Sign out
+          </Button>
         </Stack>
 
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" } }}>

@@ -52,18 +52,33 @@ export async function createReservation(values) {
     checkin: values.checkin,
     checkout: values.checkout,
   });
-  const selectedRoom = rooms.find((room) => room.id === values.roomId);
+  const requestedRooms = values.rooms?.length
+    ? values.rooms
+    : [{ roomId: values.roomId, roomQuantity: values.roomQuantity }];
 
-  if (!selectedRoom) {
-    throw new Error("Selected room was not found.");
+  if (!requestedRooms.length) {
+    throw new Error("Choose at least one room.");
   }
 
-  if (Number(selectedRoom.available_quantity) < Number(values.roomQuantity)) {
-    throw new Error("That room is no longer available for the selected dates.");
-  }
+  requestedRooms.forEach((requestedRoom) => {
+    const selectedRoom = rooms.find((room) => room.id === requestedRoom.roomId);
 
-  if (Number(selectedRoom.occupancy) < Number(values.adult)) {
-    throw new Error("Selected room cannot fit the number of adults.");
+    if (!selectedRoom) {
+      throw new Error("Selected room was not found.");
+    }
+
+    if (Number(selectedRoom.available_quantity) < Number(requestedRoom.roomQuantity)) {
+      throw new Error(`${selectedRoom.name} is no longer available for the selected dates.`);
+    }
+  });
+
+  const totalCapacity = requestedRooms.reduce((sum, requestedRoom) => {
+    const selectedRoom = rooms.find((room) => room.id === requestedRoom.roomId);
+    return sum + Number(selectedRoom?.occupancy || 0) * Number(requestedRoom.roomQuantity || 0);
+  }, 0);
+
+  if (totalCapacity < Number(values.adult)) {
+    throw new Error("Selected rooms cannot fit the number of adults.");
   }
 
   const customerId = crypto.randomUUID();
@@ -90,19 +105,21 @@ export async function createReservation(values) {
       checkout: values.checkout,
       adult: values.adult,
       children: values.children,
-      status: "pending",
+      status: values.status || "pending",
       notes: values.notes || null,
     });
 
   if (reservationError) throw reservationError;
 
+  const reservedRooms = requestedRooms.map((room) => ({
+    reservation_id: reservationId,
+    room_id: room.roomId,
+    reserved_quantity: room.roomQuantity,
+  }));
+
   const { error: reservedRoomError } = await supabase
     .from("reserved_rooms")
-    .insert({
-      reservation_id: reservationId,
-      room_id: values.roomId,
-      reserved_quantity: values.roomQuantity,
-    });
+    .insert(reservedRooms);
 
   if (reservedRoomError) throw reservedRoomError;
 

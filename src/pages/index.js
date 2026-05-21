@@ -38,7 +38,7 @@ export default function BookingPage() {
   const [children, setChildren] = useState(0);
   const [roomQuantity, setRoomQuantity] = useState(1);
   const [rooms, setRooms] = useState([]);
-  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [selectedRooms, setSelectedRooms] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +49,14 @@ export default function BookingPage() {
     () => Math.max(moment(checkout).diff(moment(checkin), "days"), 0),
     [checkin, checkout]
   );
-  const total = selectedRoom ? Number(selectedRoom.rate) * roomQuantity * nights : 0;
+  const total = selectedRooms.reduce(
+    (sum, room) => sum + Number(room.rate) * Number(room.selectedQuantity) * nights,
+    0
+  );
+  const totalSelectedRooms = selectedRooms.reduce(
+    (sum, room) => sum + Number(room.selectedQuantity),
+    0
+  );
 
   useEffect(() => {
     const nextCheckin = moment().add(1, "day").format("YYYY-MM-DD");
@@ -66,10 +73,22 @@ export default function BookingPage() {
       try {
         const availability = await getRoomAvailability({ checkin, checkout });
         setRooms(availability);
-        setSelectedRoom((current) => {
-          if (!current) return null;
-          return availability.find((room) => room.id === current.id) || null;
-        });
+        setSelectedRooms((current) =>
+          current
+            .map((selectedRoom) => {
+              const availableRoom = availability.find((room) => room.id === selectedRoom.id);
+              if (!availableRoom) return null;
+              return {
+                ...availableRoom,
+                selectedQuantity: Math.min(
+                  Number(selectedRoom.selectedQuantity || 1),
+                  Number(availableRoom.available_quantity || 0)
+                ),
+              };
+            })
+            .filter(Boolean)
+            .filter((room) => Number(room.selectedQuantity) > 0)
+        );
       } catch (err) {
         setError(err.message || "Unable to load rooms.");
       } finally {
@@ -90,13 +109,43 @@ export default function BookingPage() {
     setForm({ ...form, [event.target.name]: event.target.value });
   };
 
+  const handleAddRoom = (room) => {
+    setSelectedRooms((current) => {
+      const existingRoom = current.find((selectedRoom) => selectedRoom.id === room.id);
+      const quantity = Math.min(Number(roomQuantity), Number(room.available_quantity));
+
+      if (existingRoom) return current;
+      return [...current, { ...room, selectedQuantity: quantity }];
+    });
+  };
+
+  const handleSelectedRoomQuantity = (roomId, quantity) => {
+    setSelectedRooms((current) =>
+      current.map((room) =>
+        room.id === roomId
+          ? {
+              ...room,
+              selectedQuantity: Math.min(
+                Math.max(Number(quantity), 1),
+                Number(room.available_quantity || 1)
+              ),
+            }
+          : room
+      )
+    );
+  };
+
+  const handleRemoveRoom = (roomId) => {
+    setSelectedRooms((current) => current.filter((room) => room.id !== roomId));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
     setMessage("");
 
-    if (!selectedRoom) {
-      setError("Choose an available room first.");
+    if (selectedRooms.length === 0) {
+      setError("Choose at least one available room first.");
       return;
     }
 
@@ -109,8 +158,10 @@ export default function BookingPage() {
     try {
       const reservationId = await createReservation({
         ...form,
-        roomId: selectedRoom.id,
-        roomQuantity,
+        rooms: selectedRooms.map((room) => ({
+          roomId: room.id,
+          roomQuantity: room.selectedQuantity,
+        })),
         checkin,
         checkout,
         adult,
@@ -119,7 +170,7 @@ export default function BookingPage() {
 
       setMessage(`Reservation received. Your booking reference is ${reservationId}.`);
       setForm(initialForm);
-      setSelectedRoom(null);
+      setSelectedRooms([]);
       const availability = await getRoomAvailability({ checkin, checkout });
       setRooms(availability);
     } catch (err) {
@@ -151,9 +202,6 @@ export default function BookingPage() {
             <Typography variant="h5" sx={{ fontWeight: 800 }}>
               Resort Reservations
             </Typography>
-            <Button href="/admin" variant="outlined" sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.75)" }}>
-              Admin
-            </Button>
           </Stack>
           <Box sx={{ maxWidth: 720 }}>
             <Typography variant="h2" component="h1" sx={{ fontWeight: 800, fontSize: { xs: 38, md: 64 }, mb: 2 }}>
@@ -281,14 +329,20 @@ export default function BookingPage() {
                     </Typography>
                   </CardContent>
                   <CardActions sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
+                    {(() => {
+                      const isSelected = selectedRooms.some((selectedRoom) => selectedRoom.id === room.id);
+                      return (
                     <Button
                       color="primary"
-                      variant={selectedRoom && selectedRoom.id === room.id ? "contained" : "outlined"}
-                      onClick={() => setSelectedRoom(room)}
+                      variant={isSelected ? "contained" : "outlined"}
+                      onClick={() => handleAddRoom(room)}
+                      disabled={isSelected}
                       fullWidth
                     >
-                      {selectedRoom && selectedRoom.id === room.id ? "Selected" : "Select room"}
+                      {isSelected ? "Added" : "Add room"}
                     </Button>
+                      );
+                    })()}
                   </CardActions>
                 </Card>
               ))}
@@ -305,20 +359,53 @@ export default function BookingPage() {
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
               Reservation details
             </Typography>
-            {selectedRoom ? (
+            {selectedRooms.length > 0 ? (
               <Box sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 800 }}>{selectedRoom.name}</Typography>
-                <Typography color="text.secondary">
-                  {nights} night{nights === 1 ? "" : "s"} x {roomQuantity} room
-                  {roomQuantity === 1 ? "" : "s"}
-                </Typography>
+                <Stack spacing={1.5}>
+                  {selectedRooms.map((room) => (
+                    <Paper key={room.id} variant="outlined" sx={{ p: 1.5 }}>
+                      <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start">
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 800 }}>{room.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            PHP {Number(room.rate).toLocaleString()} / night
+                          </Typography>
+                        </Box>
+                        <Button size="small" color="secondary" onClick={() => handleRemoveRoom(room.id)}>
+                          Remove
+                        </Button>
+                      </Stack>
+                      <TextField
+                        label="Rooms"
+                        type="number"
+                        size="small"
+                        value={room.selectedQuantity}
+                        onChange={(event) => handleSelectedRoomQuantity(room.id, event.target.value)}
+                        inputProps={{ min: 1, max: room.available_quantity }}
+                        helperText={`${room.available_quantity} available`}
+                        sx={{ mt: 1.5, width: 140 }}
+                      />
+                    </Paper>
+                  ))}
+                </Stack>
+                <Box component="ul" sx={{ color: "text.secondary", listStylePosition: "inside", m: "12px 0 0", p: 0 }}>
+                  <Typography component="li">
+                    Stay: {nights} night{nights === 1 ? "" : "s"}
+                  </Typography>
+                  <Typography component="li">
+                    Rooms: {totalSelectedRooms} room{totalSelectedRooms === 1 ? "" : "s"}
+                  </Typography>
+                  <Typography component="li">
+                    Guests: {adult} adult{Number(adult) === 1 ? "" : "s"}, {children} child{Number(children) === 1 ? "" : "ren"}
+                  </Typography>
+                </Box>
                 <Typography variant="h5" sx={{ fontWeight: 800, mt: 1 }}>
                   PHP {total.toLocaleString()}
                 </Typography>
               </Box>
             ) : (
               <Typography color="text.secondary" sx={{ mb: 2 }}>
-                Select a room to continue.
+                Add one or more rooms to continue.
               </Typography>
             )}
             <Divider sx={{ mb: 2 }} />
@@ -331,8 +418,8 @@ export default function BookingPage() {
                 <TextField label="Email" name="email" type="email" value={form.email} onChange={handleFormChange} fullWidth required />
                 <TextField label="Contact number" name="contactNumber" value={form.contactNumber} onChange={handleFormChange} fullWidth required />
                 <TextField label="Notes" name="notes" value={form.notes} onChange={handleFormChange} fullWidth multiline minRows={3} />
-                <Button type="submit" color="primary" variant="contained" size="large" fullWidth disabled={submitting || !selectedRoom || nights < 1}>
-                  {submitting ? "Submitting..." : "Reserve room"}
+                <Button type="submit" color="primary" variant="contained" size="large" fullWidth disabled={submitting || selectedRooms.length === 0 || nights < 1}>
+                  {submitting ? "Submitting..." : "Reserve rooms"}
                 </Button>
               </Stack>
             </Box>
