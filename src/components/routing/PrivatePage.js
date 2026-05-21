@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 import { connect } from "react-redux";
-import { LinearProgress } from "@material-ui/core";
+import { LinearProgress } from "@mui/material";
 import { loadUser } from "../../actions/auth";
 
 function PrivatePage({ children, isAuthenticated, loading, loadUser }) {

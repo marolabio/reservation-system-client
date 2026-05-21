@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
-import Grid from "@material-ui/core/Grid";
-import TextField from "@material-ui/core/TextField";
-import Typography from "@material-ui/core/Typography";
+import Grid from "@mui/material/Grid";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 
 export default function PersonalDetails({ handleFormChange, state, validate }) {
   const {

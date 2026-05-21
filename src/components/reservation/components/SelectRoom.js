@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
-import Grid from "@material-ui/core/Grid";
-import { DatePicker } from "@material-ui/pickers";
-import Card from "@material-ui/core/Card";
-import CardActions from "@material-ui/core/CardActions";
-import CardContent from "@material-ui/core/CardContent";
-import CardMedia from "@material-ui/core/CardMedia";
-import Typography from "@material-ui/core/Typography";
-import Button from "@material-ui/core/Button";
-import Divider from "@material-ui/core/Divider";
-import { makeStyles } from "@material-ui/core/styles";
-import Skeleton from "@material-ui/lab/Skeleton";
-import TextField from "@material-ui/core/TextField";
+import Grid from "@mui/material/Grid";
+import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
+import CardContent from "@mui/material/CardContent";
+import CardMedia from "@mui/material/CardMedia";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import { makeStyles } from "@mui/styles";
+import Skeleton from "@mui/material/Skeleton";
+import TextField from "@mui/material/TextField";
 import moment from "moment";
 import supabase from "../../../utils/supabase";
 
@@ -155,25 +154,29 @@ const SelectRoom = ({
       {Object.keys(state.room).length === 0 && (
         <Grid container spacing={3}>
           <Grid item xs={12} sm={4}>
-            <DatePicker
-              inputVariant="outlined"
+            <TextField
+              type="date"
+              variant="outlined"
               fullWidth
               label="Checkin Date"
               value={checkin}
-              onChange={(date) => handleDateChange("checkin", date)}
-              animateYearScrolling
-              format="YYYY-MM-DD"
+              onChange={(event) =>
+                handleDateChange("checkin", moment(event.target.value))
+              }
+              InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} sm={4}>
-            <DatePicker
-              inputVariant="outlined"
+            <TextField
+              type="date"
+              variant="outlined"
               fullWidth
               label="Checkout Date"
               value={checkout}
-              onChange={(date) => handleDateChange("checkout", date)}
-              animateYearScrolling
-              format="YYYY-MM-DD"
+              onChange={(event) =>
+                handleDateChange("checkout", moment(event.target.value))
+              }
+              InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} sm={4}>

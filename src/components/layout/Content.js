@@ -1,6 +1,6 @@
 import React from "react";
-import { makeStyles } from "@material-ui/core/styles";
-import { Container, Box, LinearProgress } from "@material-ui/core";
+import { makeStyles } from "@mui/styles";
+import { Container, Box, LinearProgress } from "@mui/material";
 import SideBar from "./SideBar";
 import Helmet from "./Helmet";
 import Copyright from "./Copyright";

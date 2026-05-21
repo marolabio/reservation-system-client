@@ -3,12 +3,12 @@ import { useRouter } from "next/router";
 import PropTypes from "prop-types";
 import clsx from "clsx";
 import { connect } from "react-redux";
-import MenuIcon from "@material-ui/icons/Menu";
-import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
-import NotificationsIcon from "@material-ui/icons/Notifications";
-import ExitToAppIcon from "@material-ui/icons/ExitToApp";
+import MenuIcon from "@mui/icons-material/Menu";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import { mainListItems, secondaryListItems } from "./listItems";
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from "@mui/styles";
 import {
   ListItem,
   ListItemIcon,
@@ -21,7 +21,7 @@ import {
   Divider,
   Toolbar,
   List,
-} from "@material-ui/core";
+} from "@mui/material";
 import { logout } from "../../actions/auth";
 
 const drawerWidth = 240;

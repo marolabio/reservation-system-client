@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { connect } from "react-redux";
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from "@mui/styles";
 import clsx from "clsx";
-import { Paper, Grid } from "@material-ui/core";
+import { Paper, Grid } from "@mui/material";
 import Chart from "./components/Chart";
 import Deposits from "./components/Deposits";
 import Customers from "./components/Customers";
