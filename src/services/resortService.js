@@ -6,7 +6,7 @@ export function getRoomImage(image) {
   return image.url || image.publicUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945";
 }
 
-export async function getRoomAvailability({ checkin, checkout }) {
+export async function getRoomAvailability({ checkin, checkout, excludeReservationId }) {
   const { data: rooms, error: roomsError } = await supabase
     .from("rooms")
     .select("*")
@@ -14,12 +14,18 @@ export async function getRoomAvailability({ checkin, checkout }) {
 
   if (roomsError) throw roomsError;
 
-  const { data: reservations, error: reservationsError } = await supabase
+  let reservationsQuery = supabase
     .from("reservations")
     .select("id, checkin, checkout, status, reserved_rooms(room_id, reserved_quantity)")
     .in("status", ["pending", "confirmed"])
     .lt("checkin", checkout)
     .gt("checkout", checkin);
+
+  if (excludeReservationId) {
+    reservationsQuery = reservationsQuery.neq("id", excludeReservationId);
+  }
+
+  const { data: reservations, error: reservationsError } = await reservationsQuery;
 
   if (reservationsError) throw reservationsError;
 
@@ -133,4 +139,38 @@ export async function updateReservationStatus(id, status) {
     .eq("id", id);
 
   if (error) throw error;
+}
+
+export async function updateReservationRoom({ reservationId, roomId, roomQuantity, checkin, checkout }) {
+  const rooms = await getRoomAvailability({
+    checkin,
+    checkout,
+    excludeReservationId: reservationId,
+  });
+  const selectedRoom = rooms.find((room) => room.id === roomId);
+
+  if (!selectedRoom) {
+    throw new Error("Selected room was not found.");
+  }
+
+  if (Number(selectedRoom.available_quantity) < Number(roomQuantity)) {
+    throw new Error("That room is no longer available for the selected dates.");
+  }
+
+  const { error: deleteError } = await supabase
+    .from("reserved_rooms")
+    .delete()
+    .eq("reservation_id", reservationId);
+
+  if (deleteError) throw deleteError;
+
+  const { error: insertError } = await supabase
+    .from("reserved_rooms")
+    .insert({
+      reservation_id: reservationId,
+      room_id: roomId,
+      reserved_quantity: roomQuantity,
+    });
+
+  if (insertError) throw insertError;
 }

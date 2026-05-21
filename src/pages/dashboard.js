@@ -2,10 +2,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import moment from "moment";
 import {
+  Alert,
   Box,
   Button,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
   LinearProgress,
   MenuItem,
   Paper,
@@ -17,10 +24,16 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from "@mui/material";
 import supabase from "../utils/supabase";
-import { getAdminReservations, updateReservationStatus } from "../services/resortService";
+import {
+  getAdminReservations,
+  getRoomAvailability,
+  updateReservationRoom,
+  updateReservationStatus,
+} from "../services/resortService";
 
 const statusColors = {
   pending: "default",
@@ -40,6 +53,13 @@ export default function DashboardPage() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editReservation, setEditReservation] = useState(null);
+  const [editRooms, setEditRooms] = useState([]);
+  const [editRoomId, setEditRoomId] = useState("");
+  const [editRoomQuantity, setEditRoomQuantity] = useState(1);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
 
   async function loadReservations() {
     setLoading(true);
@@ -88,10 +108,73 @@ export default function DashboardPage() {
     }
   };
 
+  const handleOpenEditRoom = async (reservation) => {
+    const currentRoom = reservation.reserved_rooms?.[0];
+
+    setEditReservation(reservation);
+    setEditRoomId(currentRoom?.rooms?.id || "");
+    setEditRoomQuantity(Number(currentRoom?.reserved_quantity || 1));
+    setEditRooms([]);
+    setEditError("");
+    setEditLoading(true);
+
+    try {
+      const rooms = await getRoomAvailability({
+        checkin: reservation.checkin,
+        checkout: reservation.checkout,
+        excludeReservationId: reservation.id,
+      });
+      setEditRooms(rooms);
+    } catch (err) {
+      setEditError(err.message || "Unable to load available rooms.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleCloseEditRoom = () => {
+    if (editSaving) return;
+    setEditReservation(null);
+    setEditRooms([]);
+    setEditRoomId("");
+    setEditRoomQuantity(1);
+    setEditError("");
+  };
+
+  const handleSaveEditRoom = async () => {
+    if (!editReservation || !editRoomId) return;
+
+    setEditSaving(true);
+    setEditError("");
+
+    try {
+      await updateReservationRoom({
+        reservationId: editReservation.id,
+        roomId: editRoomId,
+        roomQuantity: editRoomQuantity,
+        checkin: editReservation.checkin,
+        checkout: editReservation.checkout,
+      });
+      await loadReservations();
+      setEditReservation(null);
+      setEditRooms([]);
+      setEditRoomId("");
+      setEditRoomQuantity(1);
+      setEditError("");
+    } catch (err) {
+      setEditError(err.message || "Unable to update reservation room.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/admin");
   };
+
+  const selectedEditRoom = editRooms.find((room) => room.id === editRoomId);
+  const maxEditQuantity = selectedEditRoom ? Math.max(Number(selectedEditRoom.available_quantity || 0), 1) : 1;
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", py: { xs: 3, md: 5 } }}>
@@ -195,15 +278,20 @@ export default function DashboardPage() {
                         <Chip label={reservation.status} color={statusColors[reservation.status] || "default"} size="small" />
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={reservation.status}
-                          size="small"
-                          onChange={(event) => handleStatusChange(reservation.id, event.target.value)}
-                        >
-                          <MenuItem value="pending">Pending</MenuItem>
-                          <MenuItem value="confirmed">Confirmed</MenuItem>
-                          <MenuItem value="cancelled">Cancelled</MenuItem>
-                        </Select>
+                        <Stack direction="row" spacing={1}>
+                          <Select
+                            value={reservation.status}
+                            size="small"
+                            onChange={(event) => handleStatusChange(reservation.id, event.target.value)}
+                          >
+                            <MenuItem value="pending">Pending</MenuItem>
+                            <MenuItem value="confirmed">Confirmed</MenuItem>
+                            <MenuItem value="cancelled">Cancelled</MenuItem>
+                          </Select>
+                          <Button size="small" variant="outlined" onClick={() => handleOpenEditRoom(reservation)}>
+                            Edit room
+                          </Button>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   );
@@ -222,6 +310,73 @@ export default function DashboardPage() {
           </TableContainer>
         </Box>
       </Container>
+
+      <Dialog open={Boolean(editReservation)} onClose={handleCloseEditRoom} fullWidth maxWidth="sm">
+        <DialogTitle>Edit reservation room</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ pt: 1 }}>
+            {editReservation && (
+              <Box>
+                <Typography sx={{ fontWeight: 700 }}>
+                  {editReservation.customers?.first_name} {editReservation.customers?.last_name}
+                </Typography>
+                <Typography color="text.secondary">
+                  {moment(editReservation.checkin).format("MMM D, YYYY")} -{" "}
+                  {moment(editReservation.checkout).format("MMM D, YYYY")}
+                </Typography>
+              </Box>
+            )}
+
+            {editError && <Alert severity="error">{editError}</Alert>}
+            {editLoading && <LinearProgress sx={{ borderRadius: 8 }} />}
+
+            <FormControl fullWidth disabled={editLoading || editSaving}>
+              <InputLabel id="edit-room-label">Room</InputLabel>
+              <Select
+                labelId="edit-room-label"
+                label="Room"
+                value={editRoomId}
+                onChange={(event) => {
+                  setEditRoomId(event.target.value);
+                  setEditRoomQuantity(1);
+                }}
+              >
+                {editRooms.map((room) => (
+                  <MenuItem key={room.id} value={room.id} disabled={Number(room.available_quantity) < 1}>
+                    {room.name} - {room.available_quantity} available - PHP {Number(room.rate).toLocaleString()} / night
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Rooms"
+              type="number"
+              value={editRoomQuantity}
+              onChange={(event) => {
+                const quantity = Math.max(Number(event.target.value), 1);
+                setEditRoomQuantity(Math.min(quantity, maxEditQuantity));
+              }}
+              inputProps={{ min: 1, max: maxEditQuantity }}
+              disabled={editLoading || editSaving || !editRoomId}
+              helperText={selectedEditRoom ? `${selectedEditRoom.available_quantity} available for these dates` : "Select a room"}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditRoom} disabled={editSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveEditRoom}
+            disabled={editLoading || editSaving || !editRoomId || !selectedEditRoom}
+          >
+            {editSaving ? "Saving..." : "Save room"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
