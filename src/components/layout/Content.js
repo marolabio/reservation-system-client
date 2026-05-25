@@ -42,7 +42,7 @@ function Content({ children, title, loading }) {
         {loading ? (
           <LinearProgress />
         ) : (
-          <Container maxWidth="lg" className={classes.container}>
+          <Container maxWidth="xl" className={classes.container}>
             {children}
             <Box pt={4}>
               <Copyright />

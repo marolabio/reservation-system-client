@@ -11,10 +11,12 @@ import {
   LinearProgress,
   MenuItem,
   Paper,
+  Snackbar,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import AdminLayout from "../components/layout/AdminLayout";
 import supabase from "../utils/supabase";
 import {
   createReservation,
@@ -43,8 +45,7 @@ export default function AdminBookingPage() {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
 
   useEffect(() => {
     async function requireSession() {
@@ -67,7 +68,6 @@ export default function AdminBookingPage() {
         return;
 
       setLoading(true);
-      setError("");
       try {
         const availability = await getRoomAvailability({ checkin, checkout });
         setRooms(availability);
@@ -88,7 +88,11 @@ export default function AdminBookingPage() {
             .filter((room) => Number(room.selectedQuantity) > 0),
         );
       } catch (err) {
-        setError(err.message || "Unable to load rooms.");
+        setToast({
+          open: true,
+          severity: "error",
+          message: err.message || "Unable to load rooms.",
+        });
       } finally {
         setLoading(false);
       }
@@ -139,6 +143,7 @@ export default function AdminBookingPage() {
       const quantity = Math.min(Number(roomQuantity), Number(room.available_quantity));
 
       if (existingRoom) return current;
+      setToast({ open: true, severity: "success", message: `${room.name} added.` });
       return [...current, { ...room, selectedQuantity: quantity }];
     });
   };
@@ -169,11 +174,9 @@ export default function AdminBookingPage() {
 
   const handleCreateBooking = async (event) => {
     event.preventDefault();
-    setError("");
-    setMessage("");
 
     if (selectedRooms.length === 0) {
-      setError("Choose at least one available room first.");
+      setToast({ open: true, severity: "error", message: "Choose a room first." });
       return;
     }
 
@@ -183,7 +186,7 @@ export default function AdminBookingPage() {
       !form.email ||
       !form.contactNumber
     ) {
-      setError("Complete the guest contact details.");
+      setToast({ open: true, severity: "error", message: "Complete guest details." });
       return;
     }
 
@@ -202,13 +205,21 @@ export default function AdminBookingPage() {
         status,
       });
 
-      setMessage(`Booking created. Reference: ${reservationId}`);
+      setToast({
+        open: true,
+        severity: "success",
+        message: `Booking created. Ref ${reservationId.slice(0, 8)}`,
+      });
       setForm(initialForm);
       setSelectedRooms([]);
       const availability = await getRoomAvailability({ checkin, checkout });
       setRooms(availability);
     } catch (err) {
-      setError(err.message || "Unable to create booking.");
+      setToast({
+        open: true,
+        severity: "error",
+        message: err.message || "Unable to create booking.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -220,20 +231,12 @@ export default function AdminBookingPage() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        bgcolor: "background.default",
-        py: { xs: 3, md: 5 },
-      }}
-    >
-      <Container maxWidth="lg">
+    <AdminLayout onSignOut={handleLogout}>
+      <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <Box
           sx={{
             mb: 3,
             width: "100%",
-            display: "flex",
-            justifyContent: "space-between",
           }}
         >
           <Box>
@@ -241,49 +244,9 @@ export default function AdminBookingPage() {
               Front desk booking
             </Typography>
             <Typography color="text.secondary">
-              Create reservations for walk-ins, calls, and staff-assisted
-              guests.
+              Walk-ins and admin-assisted guests.
             </Typography>
-            <Stack
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              sx={{ mt: 1.5, flexWrap: "wrap" }}
-            >
-              <Button
-                href="/dashboard"
-                variant={
-                  router.pathname === "/dashboard" ? "contained" : "outlined"
-                }
-                size="small"
-              >
-                Dashboard
-              </Button>
-              <Button
-                href="/admin-booking"
-                variant={
-                  router.pathname === "/admin-booking"
-                    ? "contained"
-                    : "outlined"
-                }
-                size="small"
-              >
-                New booking
-              </Button>
-              <Button
-                href="/calendar"
-                variant={
-                  router.pathname === "/calendar" ? "contained" : "outlined"
-                }
-                size="small"
-              >
-                Calendar
-              </Button>
-            </Stack>
           </Box>
-          <Button variant="outlined" size="small" onClick={handleLogout} sx={{ alignSelf: "flex-start", flexShrink: 0 }}>
-            Sign out
-          </Button>
         </Box>
 
         <Paper elevation={1} sx={{ p: { xs: 2, md: 3 }, mb: 3 }}>
@@ -369,11 +332,6 @@ export default function AdminBookingPage() {
           }}
         >
           <Box>
-            <Stack spacing={2} sx={{ mb: 2 }}>
-              {error && <Alert severity="error">{error}</Alert>}
-              {message && <Alert severity="success">{message}</Alert>}
-            </Stack>
-
             <Paper elevation={1} sx={{ overflow: "hidden" }}>
               <Box
                 sx={{
@@ -394,8 +352,7 @@ export default function AdminBookingPage() {
                     </Typography>
                     <Typography color="text.secondary">
                       {availableRooms.length} option
-                      {availableRooms.length === 1 ? "" : "s"} match the guest
-                      count, quantity, and filter.
+                      {availableRooms.length === 1 ? "" : "s"} match.
                     </Typography>
                   </Box>
                   <TextField
@@ -554,7 +511,7 @@ export default function AdminBookingPage() {
               </Box>
             ) : (
               <Typography color="text.secondary" sx={{ mb: 2 }}>
-                Add one or more rooms to continue.
+                No room selected.
               </Typography>
             )}
             <Divider sx={{ mb: 2 }} />
@@ -629,6 +586,20 @@ export default function AdminBookingPage() {
           </Paper>
         </Box>
       </Container>
-    </Box>
+      <Snackbar
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={() => setToast((current) => ({ ...current, open: false }))}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
+    </AdminLayout>
   );
 }

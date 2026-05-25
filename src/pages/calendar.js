@@ -2,18 +2,22 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import moment from "moment";
 import {
+  Alert,
   Box,
   Button,
   Chip,
   Container,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   LinearProgress,
   Paper,
+  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
+import AdminLayout from "../components/layout/AdminLayout";
 import supabase from "../utils/supabase";
 import { getAdminReservations } from "../services/resortService";
 
@@ -30,7 +34,11 @@ function bookingNights(reservation) {
   const checkout = moment(reservation.checkout);
   const dates = [];
 
-  for (let day = checkin.clone(); day.isBefore(checkout, "day"); day.add(1, "day")) {
+  for (
+    let day = checkin.clone();
+    day.isBefore(checkout, "day");
+    day.add(1, "day")
+  ) {
     dates.push(day.format("YYYY-MM-DD"));
   }
 
@@ -39,13 +47,11 @@ function bookingNights(reservation) {
 
 function guestName(reservation) {
   const customer = reservation.customers || {};
-  return `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Guest";
-}
-
-function roomSummary(reservation) {
-  return (reservation.reserved_rooms || [])
-    .map((reservedRoom) => `${reservedRoom.rooms?.name || "Room"} x ${reservedRoom.reserved_quantity}`)
-    .join(", ");
+  return (
+    `${customer.first_name || ""} ${customer.last_name || ""}`
+      .trim()
+      .toUpperCase() || "GUEST"
+  );
 }
 
 export default function CalendarPage() {
@@ -54,7 +60,13 @@ export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(moment().startOf("month"));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState({
+    open: false,
+    severity: "success",
+    message: "",
+  });
   const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedReservation, setSelectedReservation] = useState(null);
 
   async function loadReservations() {
     setLoading(true);
@@ -63,7 +75,9 @@ export default function CalendarPage() {
       const data = await getAdminReservations();
       setReservations(data);
     } catch (err) {
-      setError(err.message || "Unable to load bookings.");
+      const message = err.message || "Unable to load bookings.";
+      setError(message);
+      setToast({ open: true, severity: "error", message });
     } finally {
       setLoading(false);
     }
@@ -92,7 +106,11 @@ export default function CalendarPage() {
     const end = currentMonth.clone().endOf("month").endOf("week");
     const days = [];
 
-    for (let day = start.clone(); day.isSameOrBefore(end, "day"); day.add(1, "day")) {
+    for (
+      let day = start.clone();
+      day.isSameOrBefore(end, "day");
+      day.add(1, "day")
+    ) {
       days.push(day.clone());
     }
 
@@ -108,58 +126,101 @@ export default function CalendarPage() {
     }, {});
   }, [reservations]);
 
-  const selectedDateBookings = selectedDate ? bookingsByDate[selectedDate] || [] : [];
+  const selectedDateBookings = selectedDate
+    ? bookingsByDate[selectedDate] || []
+    : [];
   const monthBookings = reservations.filter((reservation) =>
-    bookingNights(reservation).some((date) => moment(date).isSame(currentMonth, "month"))
+    bookingNights(reservation).some((date) =>
+      moment(date).isSame(currentMonth, "month"),
+    ),
   );
+  const monthStats = [
+    ["Bookings this month", monthBookings.length],
+    [
+      "Confirmed",
+      monthBookings.filter((booking) => booking.status === "confirmed").length,
+    ],
+    [
+      "Pending",
+      monthBookings.filter((booking) => booking.status === "pending").length,
+    ],
+    [
+      "Cancelled",
+      monthBookings.filter((booking) => booking.status === "cancelled").length,
+    ],
+  ];
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", py: { xs: 3, md: 5 } }}>
-      <Container maxWidth="lg">
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 3 }}>
+    <AdminLayout onSignOut={handleLogout}>
+      <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+        <Box sx={{ mb: 3 }}>
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
               Booking calendar
             </Typography>
-            <Typography color="text.secondary">See check-ins, stays, and room assignments by date.</Typography>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5, flexWrap: "wrap" }}>
-              <Button href="/dashboard" variant={router.pathname === "/dashboard" ? "contained" : "outlined"} size="small">
-                Dashboard
-              </Button>
-              <Button href="/admin-booking" variant={router.pathname === "/admin-booking" ? "contained" : "outlined"} size="small">
-                New booking
-              </Button>
-              <Button href="/calendar" variant={router.pathname === "/calendar" ? "contained" : "outlined"} size="small">
-                Calendar
-              </Button>
-            </Stack>
+            <Typography color="text.secondary">
+              Check-ins, stays, rooms.
+            </Typography>
           </Box>
-          <Button variant="outlined" size="small" onClick={handleLogout} sx={{ alignSelf: "flex-start", flexShrink: 0 }}>
-            Sign out
-          </Button>
-        </Stack>
+        </Box>
+
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
+            mb: 2,
+          }}
+        >
+          {monthStats.map(([label, value]) => (
+            <Paper key={label} elevation={1} sx={{ p: { xs: 2, md: 2.5 } }}>
+              <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                {label}
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
+                {value}
+              </Typography>
+            </Paper>
+          ))}
+        </Box>
 
         <Paper elevation={1} sx={{ p: { xs: 1.5, md: 2 }, mb: 1.5 }}>
-          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ xs: "stretch", sm: "center" }}
+            spacing={2}
+          >
             <Stack direction="row" spacing={1} alignItems="center">
-              <Button size="small" variant="outlined" onClick={() => setCurrentMonth((month) => month.clone().subtract(1, "month"))}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() =>
+                  setCurrentMonth((month) => month.clone().subtract(1, "month"))
+                }
+              >
                 Previous
               </Button>
-              <Button size="small" variant="outlined" onClick={() => setCurrentMonth(moment().startOf("month"))}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setCurrentMonth(moment().startOf("month"))}
+              >
                 Today
               </Button>
-              <Button size="small" variant="outlined" onClick={() => setCurrentMonth((month) => month.clone().add(1, "month"))}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() =>
+                  setCurrentMonth((month) => month.clone().add(1, "month"))
+                }
+              >
                 Next
               </Button>
             </Stack>
             <Typography variant="h5" sx={{ fontWeight: 800 }}>
               {currentMonth.format("MMMM YYYY")}
             </Typography>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 1.5 }}>
-            <Chip size="small" label={`${monthBookings.length} bookings this month`} />
-            <Chip size="small" color="primary" label={`${monthBookings.filter((booking) => booking.status === "confirmed").length} confirmed`} />
-            <Chip size="small" label={`${monthBookings.filter((booking) => booking.status === "pending").length} pending`} />
           </Stack>
         </Paper>
 
@@ -170,24 +231,60 @@ export default function CalendarPage() {
           </Typography>
         )}
 
-        <Paper elevation={1} sx={{ overflow: "hidden", border: "1px solid", borderColor: "divider" }}>
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", borderBottom: "1px solid", borderColor: "divider" }}>
+        <Paper
+          elevation={1}
+          sx={{
+            overflow: "hidden",
+            border: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+              borderBottom: "1px solid",
+              borderColor: "divider",
+            }}
+          >
             {weekDays.map((day) => (
-              <Box key={day} sx={{ px: 1, py: 0.75, bgcolor: "grey.100", borderRight: "1px solid", borderColor: "divider" }}>
-                <Typography variant="caption" sx={{ fontSize: 11, fontWeight: 800, color: "text.secondary" }}>
+              <Box
+                key={day}
+                sx={{
+                  px: 1,
+                  py: 0.75,
+                  bgcolor: "grey.100",
+                  borderRight: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "text.secondary",
+                  }}
+                >
                   {day}
                 </Typography>
               </Box>
             ))}
           </Box>
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            }}
+          >
             {calendarDays.map((day) => {
               const dateKey = day.format("YYYY-MM-DD");
               const dayBookings = bookingsByDate[dateKey] || [];
               const isCurrentMonth = day.isSame(currentMonth, "month");
 
               const statusCounts = dayBookings.reduce((counts, reservation) => {
-                counts[reservation.status] = (counts[reservation.status] || 0) + 1;
+                counts[reservation.status] =
+                  (counts[reservation.status] || 0) + 1;
                 return counts;
               }, {});
 
@@ -213,7 +310,10 @@ export default function CalendarPage() {
                     bgcolor: isCurrentMonth ? "background.paper" : "grey.50",
                     opacity: isCurrentMonth ? 1 : 0.55,
                     "&:hover": {
-                      bgcolor: dayBookings.length > 0 ? "rgba(15, 118, 110, 0.08)" : "action.hover",
+                      bgcolor:
+                        dayBookings.length > 0
+                          ? "rgba(15, 118, 110, 0.08)"
+                          : "action.hover",
                     },
                   }}
                 >
@@ -221,9 +321,13 @@ export default function CalendarPage() {
                     <Typography
                       sx={{
                         alignItems: "center",
-                        bgcolor: day.isSame(moment(), "day") ? "primary.main" : "transparent",
+                        bgcolor: day.isSame(moment(), "day")
+                          ? "primary.main"
+                          : "transparent",
                         borderRadius: "50%",
-                        color: day.isSame(moment(), "day") ? "primary.contrastText" : "text.primary",
+                        color: day.isSame(moment(), "day")
+                          ? "primary.contrastText"
+                          : "text.primary",
                         display: "inline-flex",
                         fontSize: 13,
                         fontWeight: 800,
@@ -245,18 +349,35 @@ export default function CalendarPage() {
                           py: 0.5,
                         }}
                       >
-                        <Typography sx={{ color: "primary.dark", fontSize: 12, fontWeight: 800, lineHeight: 1.2 }}>
-                          {dayBookings.length} booking{dayBookings.length === 1 ? "" : "s"}
+                        <Typography
+                          sx={{
+                            color: "primary.dark",
+                            fontSize: 12,
+                            fontWeight: 800,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {dayBookings.length} booking
+                          {dayBookings.length === 1 ? "" : "s"}
                         </Typography>
-                        <Typography sx={{ color: "text.secondary", fontSize: 10.5, lineHeight: 1.2, mt: 0.25 }}>
+                        <Typography
+                          sx={{
+                            color: "text.secondary",
+                            fontSize: 10.5,
+                            lineHeight: 1.2,
+                            mt: 0.25,
+                          }}
+                        >
                           {Object.entries(statusCounts)
                             .map(([status, count]) => `${count} ${status}`)
-                            .join(" · ")}
+                            .join(" / ")}
                         </Typography>
                       </Box>
                     )}
                     {dayBookings.length > 2 && (
-                      <Typography sx={{ color: "text.secondary", fontSize: 10.5 }}>
+                      <Typography
+                        sx={{ color: "text.secondary", fontSize: 10.5 }}
+                      >
                         Tap to view all
                       </Typography>
                     )}
@@ -268,13 +389,21 @@ export default function CalendarPage() {
         </Paper>
       </Container>
 
-      <Dialog open={Boolean(selectedDate)} onClose={() => setSelectedDate(null)} fullWidth maxWidth="sm">
+      <Dialog
+        open={Boolean(selectedDate)}
+        onClose={() => setSelectedDate(null)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            {selectedDate ? moment(selectedDate).format("MMMM D, YYYY") : "Bookings"}
+            {selectedDate
+              ? moment(selectedDate).format("MMMM D, YYYY")
+              : "Bookings"}
           </Typography>
           <Typography color="text.secondary" variant="body2">
-            {selectedDateBookings.length} booking{selectedDateBookings.length === 1 ? "" : "s"}
+            {selectedDateBookings.length} booking
+            {selectedDateBookings.length === 1 ? "" : "s"}
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -287,26 +416,41 @@ export default function CalendarPage() {
               {selectedDateBookings.map((reservation) => {
                 const customer = reservation.customers || {};
                 return (
-                  <Paper key={reservation.id} variant="outlined" sx={{ p: 1.5 }}>
-                    <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="flex-start">
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 800 }}>{guestName(reservation)}</Typography>
+                  <Paper
+                    key={reservation.id}
+                    variant="outlined"
+                    sx={{ p: 1.5 }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        width: "100%",
+                      }}
+                    >
+                      <Box>
+                        <Typography sx={{ fontWeight: 800 }}>
+                          {guestName(reservation)}
+                        </Typography>
                         <Typography color="text.secondary" variant="body2">
-                          {customer.email || "No email"} · {customer.contact_number || "No contact number"}
+                          {moment(reservation.checkin).format("MMM D, YYYY")} -{" "}
+                          {moment(reservation.checkout).format("MMM D, YYYY")}
                         </Typography>
                       </Box>
-                      <Chip label={reservation.status} color={statusColors[reservation.status] || "default"} size="small" />
-                    </Stack>
-                    <Box component="ul" sx={{ color: "text.secondary", listStylePosition: "inside", m: "8px 0 0", p: 0 }}>
-                      <Typography component="li" variant="body2">
-                        Stay: {moment(reservation.checkin).format("MMM D, YYYY")} - {moment(reservation.checkout).format("MMM D, YYYY")}
-                      </Typography>
-                      <Typography component="li" variant="body2">
-                        Guests: {reservation.adult} adult{Number(reservation.adult) === 1 ? "" : "s"}, {reservation.children} child{Number(reservation.children) === 1 ? "" : "ren"}
-                      </Typography>
-                      <Typography component="li" variant="body2">
-                        Rooms: {roomSummary(reservation)}
-                      </Typography>
+                      <Chip
+                        label={reservation.status}
+                        color={statusColors[reservation.status] || "default"}
+                        size="small"
+                      />
+                      <Box sx={{ display: "flex" }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setSelectedReservation(reservation)}
+                        >
+                          View
+                        </Button>
+                      </Box>
                     </Box>
                   </Paper>
                 );
@@ -315,6 +459,157 @@ export default function CalendarPage() {
           )}
         </DialogContent>
       </Dialog>
-    </Box>
+
+      <Dialog
+        open={Boolean(selectedReservation)}
+        onClose={() => setSelectedReservation(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+            Reservation details
+          </Typography>
+          {selectedReservation && (
+            <Typography color="text.secondary" variant="body2">
+              {moment(selectedReservation.checkin).format("MMM D, YYYY")} -{" "}
+              {moment(selectedReservation.checkout).format("MMM D, YYYY")}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          {selectedReservation && (
+            <Stack spacing={1.5} sx={{ pb: 1 }}>
+              {(() => {
+                const customer = selectedReservation.customers || {};
+                const reservedRooms = selectedReservation.reserved_rooms || [];
+
+                return (
+                  <>
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        spacing={2}
+                        alignItems="flex-start"
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 800 }}>
+                            {guestName(selectedReservation)}
+                          </Typography>
+                          <Typography color="text.secondary" variant="body2">
+                            {customer.email || "No email"} /{" "}
+                            {customer.contact_number || "No contact number"}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={selectedReservation.status}
+                          color={
+                            statusColors[selectedReservation.status] ||
+                            "default"
+                          }
+                          size="small"
+                        />
+                      </Stack>
+
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gap: 1,
+                          gridTemplateColumns: {
+                            xs: "1fr",
+                            sm: "repeat(2, minmax(0, 1fr))",
+                          },
+                          mt: 1.5,
+                        }}
+                      >
+                        <Box>
+                          <Typography color="text.secondary" variant="caption">
+                            Stay
+                          </Typography>
+                          <Typography variant="body2">
+                            {moment(selectedReservation.checkin).format(
+                              "MMM D, YYYY",
+                            )}{" "}
+                            -{" "}
+                            {moment(selectedReservation.checkout).format(
+                              "MMM D, YYYY",
+                            )}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography color="text.secondary" variant="caption">
+                            Guests
+                          </Typography>
+                          <Typography variant="body2">
+                            {selectedReservation.adult} adult
+                            {Number(selectedReservation.adult) === 1 ? "" : "s"}
+                            , {selectedReservation.children} child
+                            {Number(selectedReservation.children) === 1
+                              ? ""
+                              : "ren"}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Paper>
+
+                    <Paper
+                      variant="outlined"
+                      sx={{ bgcolor: "grey.50", p: 1.5 }}
+                    >
+                      <Typography sx={{ fontWeight: 800, mb: 1 }}>
+                        Rooms
+                      </Typography>
+                      <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                        {reservedRooms.map((reservedRoom) => (
+                          <Typography
+                            component="li"
+                            key={reservedRoom.id}
+                            sx={{ mb: 0.75, pl: 0.25 }}
+                          >
+                            <Box component="span" sx={{ fontWeight: 700 }}>
+                              {reservedRoom.rooms?.name || "Room"}
+                            </Box>{" "}
+                            x {reservedRoom.reserved_quantity}
+                            <Typography
+                              component="span"
+                              color="text.secondary"
+                              sx={{ display: "block", fontSize: 13 }}
+                            >
+                              PHP{" "}
+                              {Number(
+                                reservedRoom.rooms?.rate || 0,
+                              ).toLocaleString()}{" "}
+                              / night
+                            </Typography>
+                          </Typography>
+                        ))}
+                      </Box>
+                    </Paper>
+                  </>
+                );
+              })()}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedReservation(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+      <Snackbar
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={() => setToast((current) => ({ ...current, open: false }))}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
+    </AdminLayout>
   );
 }

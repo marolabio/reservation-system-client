@@ -14,10 +14,12 @@ import {
   Divider,
   LinearProgress,
   Paper,
+  Snackbar,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import TopNav from "../components/layout/TopNav";
 import { createReservation, getRoomAvailability, getRoomImage } from "../services/resortService";
 
 const initialForm = {
@@ -42,8 +44,7 @@ export default function BookingPage() {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
 
   const nights = useMemo(
     () => Math.max(moment(checkout).diff(moment(checkin), "days"), 0),
@@ -69,7 +70,6 @@ export default function BookingPage() {
     async function loadRooms() {
       if (!checkin || !checkout || moment(checkout).isSameOrBefore(checkin)) return;
       setLoading(true);
-      setError("");
       try {
         const availability = await getRoomAvailability({ checkin, checkout });
         setRooms(availability);
@@ -90,7 +90,11 @@ export default function BookingPage() {
             .filter((room) => Number(room.selectedQuantity) > 0)
         );
       } catch (err) {
-        setError(err.message || "Unable to load rooms.");
+        setToast({
+          open: true,
+          severity: "error",
+          message: err.message || "Unable to load rooms.",
+        });
       } finally {
         setLoading(false);
       }
@@ -115,6 +119,7 @@ export default function BookingPage() {
       const quantity = Math.min(Number(roomQuantity), Number(room.available_quantity));
 
       if (existingRoom) return current;
+      setToast({ open: true, severity: "success", message: `${room.name} added.` });
       return [...current, { ...room, selectedQuantity: quantity }];
     });
   };
@@ -141,16 +146,14 @@ export default function BookingPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError("");
-    setMessage("");
 
     if (selectedRooms.length === 0) {
-      setError("Choose at least one available room first.");
+      setToast({ open: true, severity: "error", message: "Choose a room first." });
       return;
     }
 
     if (!form.firstName || !form.lastName || !form.email || !form.contactNumber) {
-      setError("Please complete your contact details.");
+      setToast({ open: true, severity: "error", message: "Complete guest details." });
       return;
     }
 
@@ -168,13 +171,21 @@ export default function BookingPage() {
         children,
       });
 
-      setMessage(`Reservation received. Your booking reference is ${reservationId}.`);
+      setToast({
+        open: true,
+        severity: "success",
+        message: `Reserved. Ref ${reservationId.slice(0, 8)}`,
+      });
       setForm(initialForm);
       setSelectedRooms([]);
       const availability = await getRoomAvailability({ checkin, checkout });
       setRooms(availability);
     } catch (err) {
-      setError(err.message || "Reservation failed. Please try another room or date.");
+      setToast({
+        open: true,
+        severity: "error",
+        message: err.message || "Reservation failed.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -183,8 +194,9 @@ export default function BookingPage() {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <Head>
-        <title>Resort Room Reservations</title>
+        <title>Hotel Reservations</title>
       </Head>
+      <TopNav />
 
       <Box
         sx={{
@@ -197,24 +209,19 @@ export default function BookingPage() {
           pt: { xs: 4, md: 6 },
         }}
       >
-        <Container maxWidth="lg">
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: { xs: 7, md: 10 } }}>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
-              Resort Reservations
-            </Typography>
-          </Stack>
+        <Container maxWidth="xl">
           <Box sx={{ maxWidth: 720 }}>
             <Typography variant="h2" component="h1" sx={{ fontWeight: 800, fontSize: { xs: 38, md: 64 }, mb: 2 }}>
-              Book your resort stay
+              Book your stay
             </Typography>
             <Typography variant="h6" sx={{ color: "rgba(255,255,255,0.88)", lineHeight: 1.6 }}>
-              Choose dates, pick an available room, and submit your reservation request.
+              Dates, rooms, guest details.
             </Typography>
           </Box>
         </Container>
       </Box>
 
-      <Container maxWidth="lg">
+      <Container maxWidth="xl">
         <Paper
           elevation={2}
           sx={{
@@ -298,16 +305,11 @@ export default function BookingPage() {
                 <Typography variant="h5" sx={{ fontWeight: 800 }}>
                   Available rooms
                 </Typography>
-                <Typography color="text.secondary">
-                  {availableRooms.length} option{availableRooms.length === 1 ? "" : "s"} for your dates
-                </Typography>
-              </Box>
-            </Stack>
-
-            <Stack spacing={2} sx={{ mb: 2 }}>
-              {error && <Alert severity="error">{error}</Alert>}
-              {message && <Alert severity="success">{message}</Alert>}
-            </Stack>
+            <Typography color="text.secondary">
+              {availableRooms.length} option{availableRooms.length === 1 ? "" : "s"} for your dates
+            </Typography>
+          </Box>
+        </Stack>
 
             <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
               {availableRooms.map((room) => (
@@ -405,7 +407,7 @@ export default function BookingPage() {
               </Box>
             ) : (
               <Typography color="text.secondary" sx={{ mb: 2 }}>
-                Add one or more rooms to continue.
+                No room selected.
               </Typography>
             )}
             <Divider sx={{ mb: 2 }} />
@@ -419,13 +421,27 @@ export default function BookingPage() {
                 <TextField label="Contact number" name="contactNumber" value={form.contactNumber} onChange={handleFormChange} fullWidth required />
                 <TextField label="Notes" name="notes" value={form.notes} onChange={handleFormChange} fullWidth multiline minRows={3} />
                 <Button type="submit" color="primary" variant="contained" size="large" fullWidth disabled={submitting || selectedRooms.length === 0 || nights < 1}>
-                  {submitting ? "Submitting..." : "Reserve rooms"}
+                  {submitting ? "Reserving..." : "Reserve"}
                 </Button>
               </Stack>
             </Box>
           </Paper>
         </Box>
       </Container>
+      <Snackbar
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={() => setToast((current) => ({ ...current, open: false }))}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

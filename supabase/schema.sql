@@ -47,27 +47,26 @@ create index if not exists reserved_rooms_room_id_idx on public.reserved_rooms(r
 create index if not exists reserved_rooms_reservation_id_idx on public.reserved_rooms(reservation_id);
 create index if not exists reservations_dates_status_idx on public.reservations(checkin, checkout, status);
 
-alter table public.rooms enable row level security;
-alter table public.customers enable row level security;
-alter table public.reservations enable row level security;
-alter table public.reserved_rooms enable row level security;
+alter table public.rooms disable row level security;
+alter table public.customers disable row level security;
+alter table public.reservations disable row level security;
+alter table public.reserved_rooms disable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select on public.rooms to anon, authenticated;
+grant insert on public.rooms to authenticated;
+grant update, delete on public.rooms to authenticated;
 grant insert on public.customers to anon, authenticated;
 grant select, insert on public.reservations to anon, authenticated;
+grant delete on public.reservations to authenticated;
 grant select, insert on public.reserved_rooms to anon, authenticated;
 grant select on public.customers to authenticated;
 grant update on public.reservations to authenticated;
 
-drop policy if exists "Rooms are readable by authenticated users" on public.rooms;
-drop policy if exists "Reservations are readable by authenticated users" on public.reservations;
-drop policy if exists "Customers are readable by authenticated users" on public.customers;
-drop policy if exists "Reserved rooms are readable by authenticated users" on public.reserved_rooms;
-drop policy if exists "Authenticated users can create customers" on public.customers;
-drop policy if exists "Authenticated users can create reservations" on public.reservations;
-drop policy if exists "Authenticated users can create reserved rooms" on public.reserved_rooms;
 drop policy if exists "rooms_select_public" on public.rooms;
+drop policy if exists "rooms_insert_admin" on public.rooms;
+drop policy if exists "rooms_update_admin" on public.rooms;
+drop policy if exists "rooms_delete_admin" on public.rooms;
 drop policy if exists "customers_select_admin" on public.customers;
 drop policy if exists "customers_insert_public" on public.customers;
 drop policy if exists "reservations_select_public" on public.reservations;
@@ -75,52 +74,6 @@ drop policy if exists "reservations_insert_public" on public.reservations;
 drop policy if exists "reservations_update_admin" on public.reservations;
 drop policy if exists "reserved_rooms_select_public" on public.reserved_rooms;
 drop policy if exists "reserved_rooms_insert_public" on public.reserved_rooms;
-
-create policy "rooms_select_public"
-  on public.rooms for select
-  to anon, authenticated
-  using (true);
-
-create policy "customers_select_admin"
-  on public.customers for select
-  to authenticated
-  using (true);
-
-create policy "customers_insert_public"
-  on public.customers for insert
-  to anon, authenticated
-  with check (
-    first_name is not null
-    and last_name is not null
-    and contact_number is not null
-    and email is not null
-  );
-
-create policy "reservations_select_public"
-  on public.reservations for select
-  to anon, authenticated
-  using (true);
-
-create policy "reservations_insert_public"
-  on public.reservations for insert
-  to anon, authenticated
-  with check (status = 'pending');
-
-create policy "reservations_update_admin"
-  on public.reservations for update
-  to authenticated
-  using (true)
-  with check (true);
-
-create policy "reserved_rooms_select_public"
-  on public.reserved_rooms for select
-  to anon, authenticated
-  using (true);
-
-create policy "reserved_rooms_insert_public"
-  on public.reserved_rooms for insert
-  to anon, authenticated
-  with check (true);
 
 drop function if exists public.room_availability(date, date);
 drop function if exists public.create_reservation(text, text, text, text, uuid, integer, date, date, integer, integer, text);

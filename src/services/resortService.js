@@ -47,6 +47,65 @@ export async function getRoomAvailability({ checkin, checkout, excludeReservatio
   });
 }
 
+export async function getAdminRooms() {
+  const { data, error } = await supabase
+    .from("rooms")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createRoom(values) {
+  const imageUrl = values.imageUrl?.trim();
+  const { data, error } = await supabase
+    .from("rooms")
+    .insert({
+      name: values.name.trim(),
+      description: values.description?.trim() || null,
+      occupancy: Number(values.occupancy),
+      quantity: Number(values.quantity),
+      rate: Number(values.rate),
+      image: imageUrl ? { url: imageUrl } : null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateRoom(id, values) {
+  const imageUrl = values.imageUrl?.trim();
+  const { data, error } = await supabase
+    .from("rooms")
+    .update({
+      name: values.name.trim(),
+      description: values.description?.trim() || null,
+      occupancy: Number(values.occupancy),
+      quantity: Number(values.quantity),
+      rate: Number(values.rate),
+      image: imageUrl ? { url: imageUrl } : null,
+    })
+    .eq("id", id)
+    .select("*");
+
+  if (error) throw error;
+  const room = data?.[0];
+  if (!room) throw new Error("Room was not found or could not be updated.");
+  return room;
+}
+
+export async function deleteRoom(id) {
+  const { error } = await supabase
+    .from("rooms")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
 export async function createReservation(values) {
   const rooms = await getRoomAvailability({
     checkin: values.checkin,
@@ -158,36 +217,11 @@ export async function updateReservationStatus(id, status) {
   if (error) throw error;
 }
 
-export async function updateReservationRoom({ reservationId, roomId, roomQuantity, checkin, checkout }) {
-  const rooms = await getRoomAvailability({
-    checkin,
-    checkout,
-    excludeReservationId: reservationId,
-  });
-  const selectedRoom = rooms.find((room) => room.id === roomId);
-
-  if (!selectedRoom) {
-    throw new Error("Selected room was not found.");
-  }
-
-  if (Number(selectedRoom.available_quantity) < Number(roomQuantity)) {
-    throw new Error("That room is no longer available for the selected dates.");
-  }
-
-  const { error: deleteError } = await supabase
-    .from("reserved_rooms")
+export async function deleteReservation(id) {
+  const { error } = await supabase
+    .from("reservations")
     .delete()
-    .eq("reservation_id", reservationId);
+    .eq("id", id);
 
-  if (deleteError) throw deleteError;
-
-  const { error: insertError } = await supabase
-    .from("reserved_rooms")
-    .insert({
-      reservation_id: reservationId,
-      room_id: roomId,
-      reserved_quantity: roomQuantity,
-    });
-
-  if (insertError) throw insertError;
+  if (error) throw error;
 }

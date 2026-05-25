@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Avatar, Box, Button, Container, Paper, Stack, TextField, Typography } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import TopNav from "../components/layout/TopNav";
 import supabase from "../utils/supabase";
 
 export default function AdminLoginPage() {
@@ -40,13 +41,11 @@ export default function AdminLoginPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
         bgcolor: "background.default",
-        py: 4,
       }}
     >
-      <Container maxWidth="xs">
+      <TopNav />
+      <Container maxWidth="xs" sx={{ py: 6 }}>
         <Paper elevation={2} sx={{ p: { xs: 3, sm: 4 } }}>
           <Stack spacing={2.5} alignItems="stretch">
             <Avatar sx={{ mx: "auto", bgcolor: "primary.main", width: 52, height: 52 }}>
