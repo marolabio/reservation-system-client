@@ -10,8 +10,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  InputLabel,
   LinearProgress,
+  MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   Table,
@@ -33,7 +37,14 @@ const initialForm = {
   occupancy: 2,
   quantity: 1,
   rate: 0,
+  status: "active",
   imageUrl: "",
+};
+
+const roomStatusColors = {
+  active: "primary",
+  maintenance: "warning",
+  disabled: "default",
 };
 
 function roomToForm(room) {
@@ -43,6 +54,7 @@ function roomToForm(room) {
     occupancy: room.occupancy || 1,
     quantity: room.quantity || 0,
     rate: room.rate || 0,
+    status: room.status || "active",
     imageUrl: room.image?.url || room.image?.publicUrl || "",
   };
 }
@@ -253,6 +265,20 @@ export default function RoomsPage() {
                   fullWidth
                   required
                 />
+                <FormControl fullWidth>
+                  <InputLabel id="room-status-label">Status</InputLabel>
+                  <Select
+                    labelId="room-status-label"
+                    label="Status"
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                  >
+                    <MenuItem value="active">Active</MenuItem>
+                    <MenuItem value="maintenance">Maintenance</MenuItem>
+                    <MenuItem value="disabled">Disabled</MenuItem>
+                  </Select>
+                </FormControl>
                 <TextField
                   label="Image URL"
                   name="imageUrl"
@@ -276,6 +302,7 @@ export default function RoomsPage() {
                   <TableCell sx={{ fontWeight: 800 }}>Capacity</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Quantity</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rate</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Image</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Actions</TableCell>
                 </TableRow>
@@ -294,6 +321,13 @@ export default function RoomsPage() {
                     </TableCell>
                     <TableCell>{room.quantity}</TableCell>
                     <TableCell sx={{ fontWeight: 800 }}>PHP {Number(room.rate || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        color={roomStatusColors[room.status] || "default"}
+                        label={room.status || "active"}
+                      />
+                    </TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography
                         component="a"
@@ -327,7 +361,7 @@ export default function RoomsPage() {
                 ))}
                 {!loading && rooms.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={7}>
                       <Typography align="center" sx={{ py: 4 }}>
                         No rooms yet.
                       </Typography>
@@ -387,6 +421,20 @@ export default function RoomsPage() {
                 fullWidth
                 required
               />
+              <FormControl fullWidth>
+                <InputLabel id="edit-room-status-label">Status</InputLabel>
+                <Select
+                  labelId="edit-room-status-label"
+                  label="Status"
+                  name="status"
+                  value={editForm.status}
+                  onChange={handleEditChange}
+                >
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="maintenance">Maintenance</MenuItem>
+                  <MenuItem value="disabled">Disabled</MenuItem>
+                </Select>
+              </FormControl>
               <TextField label="Image URL" name="imageUrl" value={editForm.imageUrl} onChange={handleEditChange} fullWidth />
             </Stack>
           </Box>

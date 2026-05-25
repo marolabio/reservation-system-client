@@ -10,6 +10,7 @@ export async function getRoomAvailability({ checkin, checkout, excludeReservatio
   const { data: rooms, error: roomsError } = await supabase
     .from("rooms")
     .select("*")
+    .eq("status", "active")
     .order("rate", { ascending: true });
 
   if (roomsError) throw roomsError;
@@ -67,6 +68,7 @@ export async function createRoom(values) {
       occupancy: Number(values.occupancy),
       quantity: Number(values.quantity),
       rate: Number(values.rate),
+      status: values.status || "active",
       image: imageUrl ? { url: imageUrl } : null,
     })
     .select()
@@ -86,6 +88,7 @@ export async function updateRoom(id, values) {
       occupancy: Number(values.occupancy),
       quantity: Number(values.quantity),
       rate: Number(values.rate),
+      status: values.status || "active",
       image: imageUrl ? { url: imageUrl } : null,
     })
     .eq("id", id)
