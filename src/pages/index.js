@@ -326,6 +326,13 @@ export default function BookingPage() {
                       Good for {room.occupancy} guests
                     </Typography>
                     <Typography sx={{ mb: 2 }}>{room.description}</Typography>
+                    {(room.amenities || []).length > 0 && (
+                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
+                        {room.amenities.map((amenity) => (
+                          <Chip key={amenity.id} label={amenity.name} size="small" />
+                        ))}
+                      </Stack>
+                    )}
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>
                       PHP {Number(room.rate).toLocaleString()} / night
                     </Typography>

@@ -118,6 +118,7 @@ export default function AdminBookingPage() {
     return [
       room.name,
       room.description,
+      ...(room.amenities || []).map((amenity) => amenity.name),
       `capacity ${room.occupancy}`,
       `${room.occupancy} guests`,
       `${room.available_quantity} left`,
@@ -242,9 +243,6 @@ export default function AdminBookingPage() {
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
               Front desk booking
-            </Typography>
-            <Typography color="text.secondary">
-              Walk-ins and admin-assisted guests.
             </Typography>
           </Box>
         </Box>
@@ -405,21 +403,20 @@ export default function AdminBookingPage() {
                           Capacity: {room.occupancy} guests
                         </Typography>
                         <Typography component="li">
-                          Available: {room.available_quantity} room
-                          {Number(room.available_quantity) === 1 ? "" : "s"}
-                        </Typography>
-                        <Typography component="li">
                           Rate: PHP {Number(room.rate).toLocaleString()} / night
-                        </Typography>
-                        <Typography component="li">
-                          Add qty: {roomQuantity} room
-                          {Number(roomQuantity) === 1 ? "" : "s"}
                         </Typography>
                       </Box>
                       {room.description && (
                         <Typography color="text.secondary" sx={{ mt: 1 }}>
                           {room.description}
                         </Typography>
+                      )}
+                      {(room.amenities || []).length > 0 && (
+                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                          {room.amenities.map((amenity) => (
+                            <Chip key={amenity.id} label={amenity.name} size="small" />
+                          ))}
+                        </Stack>
                       )}
                     </Box>
                     {(() => {

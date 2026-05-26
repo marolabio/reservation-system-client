@@ -55,9 +55,6 @@ export default function AdminLoginPage() {
               <Typography component="h1" variant="h5" sx={{ fontWeight: 800 }}>
                 Admin sign in
               </Typography>
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                Use a Supabase Auth user account to manage reservations.
-              </Typography>
             </Box>
             {error && (
               <Typography color="error" sx={{ textAlign: "center" }}>

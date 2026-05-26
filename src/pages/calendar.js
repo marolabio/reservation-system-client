@@ -8,15 +8,16 @@ import {
   Chip,
   Container,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   LinearProgress,
   Paper,
   Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import AdminLayout from "../components/layout/AdminLayout";
 import supabase from "../utils/supabase";
 import { getAdminReservations } from "../services/resortService";
@@ -24,6 +25,8 @@ import { getAdminReservations } from "../services/resortService";
 const statusColors = {
   pending: "default",
   confirmed: "primary",
+  checked_in: "success",
+  checked_out: "warning",
   cancelled: "secondary",
 };
 
@@ -158,30 +161,7 @@ export default function CalendarPage() {
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
               Booking calendar
             </Typography>
-            <Typography color="text.secondary">
-              Check-ins, stays, rooms.
-            </Typography>
           </Box>
-        </Box>
-
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
-            mb: 2,
-          }}
-        >
-          {monthStats.map(([label, value]) => (
-            <Paper key={label} elevation={1} sx={{ p: { xs: 2, md: 2.5 } }}>
-              <Typography color="text.secondary" sx={{ fontSize: 14 }}>
-                {label}
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
-                {value}
-              </Typography>
-            </Paper>
-          ))}
         </Box>
 
         <Paper elevation={1} sx={{ p: { xs: 1.5, md: 2 }, mb: 1.5 }}>
@@ -223,6 +203,26 @@ export default function CalendarPage() {
             </Typography>
           </Stack>
         </Paper>
+
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
+            mb: 2,
+          }}
+        >
+          {monthStats.map(([label, value]) => (
+            <Paper key={label} elevation={1} sx={{ p: { xs: 2, md: 2.5 } }}>
+              <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                {label}
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
+                {value}
+              </Typography>
+            </Paper>
+          ))}
+        </Box>
 
         {loading && <LinearProgress sx={{ mb: 2, borderRadius: 8 }} />}
         {error && (
@@ -395,7 +395,14 @@ export default function CalendarPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle sx={{ pb: 1 }}>
+        <DialogTitle sx={{ pb: 1, pr: 6 }}>
+          <IconButton
+            aria-label="Close"
+            onClick={() => setSelectedDate(null)}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
             {selectedDate
               ? moment(selectedDate).format("MMMM D, YYYY")
@@ -466,7 +473,14 @@ export default function CalendarPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle sx={{ pb: 1 }}>
+        <DialogTitle sx={{ pb: 1, pr: 6 }}>
+          <IconButton
+            aria-label="Close"
+            onClick={() => setSelectedReservation(null)}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
             Reservation details
           </Typography>
@@ -592,9 +606,6 @@ export default function CalendarPage() {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSelectedReservation(null)}>Close</Button>
-        </DialogActions>
       </Dialog>
       <Snackbar
         anchorOrigin={{ vertical: "top", horizontal: "center" }}

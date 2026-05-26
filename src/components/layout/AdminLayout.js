@@ -1,17 +1,29 @@
 import React from "react";
 import { Box, Button, Divider, Stack, Tooltip, Typography } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import CategoryIcon from "@mui/icons-material/Category";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import HotelIcon from "@mui/icons-material/Hotel";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AddBusinessIcon from "@mui/icons-material/AddBusiness";
 import { useRouter } from "next/router";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
-  { label: "New booking", href: "/admin-booking", icon: AddBusinessIcon },
-  { label: "Rooms", href: "/rooms", icon: HotelIcon },
-  { label: "Calendar", href: "/calendar", icon: CalendarMonthIcon },
+const navSections = [
+  {
+    label: "Reservations",
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
+      { label: "New booking", href: "/admin-booking", icon: AddBusinessIcon },
+      { label: "Calendar", href: "/calendar", icon: CalendarMonthIcon },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { label: "Rooms", href: "/rooms", icon: HotelIcon },
+      { label: "Amenities", href: "/amenities", icon: CategoryIcon },
+    ],
+  },
 ];
 
 export default function AdminLayout({ children, onSignOut }) {
@@ -65,41 +77,60 @@ export default function AdminLayout({ children, onSignOut }) {
 
         <Divider />
 
-        <Stack component="nav" spacing={0.75} sx={{ flexGrow: 1, p: 1 }}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = router.pathname === item.href;
+        <Stack component="nav" spacing={1.25} sx={{ flexGrow: 1, p: 1 }}>
+          {navSections.map((section) => (
+            <Box key={section.label}>
+              <Typography
+                sx={{
+                  color: "text.secondary",
+                  display: { xs: "none", md: "block" },
+                  fontSize: 12,
+                  fontWeight: 800,
+                  px: 1.5,
+                  py: 0.75,
+                  textTransform: "uppercase",
+                }}
+              >
+                {section.label}
+              </Typography>
+              <Stack spacing={0.75}>
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = router.pathname === item.href;
 
-            return (
-              <Tooltip key={item.href} title={item.label} placement="right" disableHoverListener={false}>
-                <Button
-                  href={item.href}
-                  startIcon={<Icon />}
-                  sx={{
-                    borderRadius: 1,
-                    color: active ? "primary.contrastText" : "text.primary",
-                    justifyContent: { xs: "center", md: "flex-start" },
-                    minHeight: 44,
-                    minWidth: 0,
-                    px: { xs: 1, md: 1.5 },
-                    textTransform: "none",
-                    bgcolor: active ? "primary.main" : "transparent",
-                    "& .MuiButton-startIcon": {
-                      m: { xs: 0, md: "0 8px 0 0" },
-                    },
-                    "&:hover": {
-                      bgcolor: active ? "primary.dark" : "action.hover",
-                    },
-                  }}
-                  fullWidth
-                >
-                  <Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
-                    {item.label}
-                  </Box>
-                </Button>
-              </Tooltip>
-            );
-          })}
+                  return (
+                    <Tooltip key={item.href} title={item.label} placement="right" disableHoverListener={false}>
+                      <Button
+                        href={item.href}
+                        startIcon={<Icon />}
+                        sx={{
+                          borderRadius: 1,
+                          color: active ? "primary.contrastText" : "text.primary",
+                          justifyContent: { xs: "center", md: "flex-start" },
+                          minHeight: 44,
+                          minWidth: 0,
+                          px: { xs: 1, md: 1.5 },
+                          textTransform: "none",
+                          bgcolor: active ? "primary.main" : "transparent",
+                          "& .MuiButton-startIcon": {
+                            m: { xs: 0, md: "0 8px 0 0" },
+                          },
+                          "&:hover": {
+                            bgcolor: active ? "primary.dark" : "action.hover",
+                          },
+                        }}
+                        fullWidth
+                      >
+                        <Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+                          {item.label}
+                        </Box>
+                      </Button>
+                    </Tooltip>
+                  );
+                })}
+              </Stack>
+            </Box>
+          ))}
         </Stack>
 
         <Box sx={{ p: 1 }}>

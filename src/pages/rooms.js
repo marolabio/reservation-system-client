@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Container,
   Dialog,
@@ -11,8 +12,10 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
   LinearProgress,
+  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -23,12 +26,23 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import SearchIcon from "@mui/icons-material/Search";
 import AdminLayout from "../components/layout/AdminLayout";
-import { createRoom, deleteRoom, getAdminRooms, getRoomImage, updateRoom } from "../services/resortService";
+import {
+  createRoom,
+  deleteRoom,
+  getAmenities,
+  getAdminRoomsPage,
+  getRoomImage,
+  updateRoom,
+} from "../services/resortService";
 import supabase from "../utils/supabase";
 
 const initialForm = {
@@ -39,6 +53,7 @@ const initialForm = {
   rate: 0,
   status: "active",
   imageUrl: "",
+  amenityIds: [],
 };
 
 const roomStatusColors = {
@@ -56,35 +71,139 @@ function roomToForm(room) {
     rate: room.rate || 0,
     status: room.status || "active",
     imageUrl: room.image?.url || room.image?.publicUrl || "",
+    amenityIds: (room.amenities || []).map((amenity) => amenity.id),
   };
+}
+
+function RoomForm({ formId, values, amenities, onChange, onSubmit, renderAmenityValue }) {
+  return (
+    <Box component="form" id={formId} onSubmit={onSubmit} sx={{ pt: 1 }}>
+      <Stack spacing={2}>
+        <TextField label="Room name" name="name" value={values.name} onChange={onChange} fullWidth required />
+        <TextField
+          label="Description"
+          name="description"
+          value={values.description}
+          onChange={onChange}
+          fullWidth
+          multiline
+          minRows={3}
+        />
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+          <TextField
+            label="Capacity"
+            name="occupancy"
+            type="number"
+            value={values.occupancy}
+            onChange={onChange}
+            inputProps={{ min: 1 }}
+            fullWidth
+            required
+          />
+          <TextField
+            label="Quantity"
+            name="quantity"
+            type="number"
+            value={values.quantity}
+            onChange={onChange}
+            inputProps={{ min: 0 }}
+            fullWidth
+            required
+          />
+        </Box>
+        <TextField
+          label="Rate per night"
+          name="rate"
+          type="number"
+          value={values.rate}
+          onChange={onChange}
+          inputProps={{ min: 0, step: "0.01" }}
+          fullWidth
+          required
+        />
+        <FormControl fullWidth>
+          <InputLabel id={`${formId}-status-label`}>Status</InputLabel>
+          <Select
+            labelId={`${formId}-status-label`}
+            label="Status"
+            name="status"
+            value={values.status}
+            onChange={onChange}
+          >
+            <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="maintenance">Maintenance</MenuItem>
+            <MenuItem value="disabled">Disabled</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl fullWidth>
+          <InputLabel id={`${formId}-amenities-label`}>Amenities</InputLabel>
+          <Select
+            labelId={`${formId}-amenities-label`}
+            label="Amenities"
+            name="amenityIds"
+            multiple
+            value={values.amenityIds}
+            onChange={onChange}
+            renderValue={renderAmenityValue}
+          >
+            {amenities.map((amenity) => (
+              <MenuItem key={amenity.id} value={amenity.id}>
+                <Checkbox checked={values.amenityIds.includes(amenity.id)} />
+                <ListItemText primary={amenity.name} />
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField label="Image URL" name="imageUrl" value={values.imageUrl} onChange={onChange} fullWidth />
+      </Stack>
+    </Box>
+  );
 }
 
 export default function RoomsPage() {
   const router = useRouter();
   const [rooms, setRooms] = useState([]);
+  const [roomCount, setRoomCount] = useState(0);
+  const [amenities, setAmenities] = useState([]);
+  const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editRoom, setEditRoom] = useState(null);
   const [editForm, setEditForm] = useState(initialForm);
   const [editSaving, setEditSaving] = useState(false);
   const [deleteRoomTarget, setDeleteRoomTarget] = useState(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [error, setError] = useState("");
   const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
 
-  async function loadRooms() {
+  const loadRooms = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await getAdminRooms();
-      setRooms(data);
+      const data = await getAdminRoomsPage({ page, pageSize: rowsPerPage, search });
+      setRooms(data.rooms);
+      setRoomCount(data.count);
     } catch (err) {
       setError(err.message || "Unable to load rooms.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, rowsPerPage, search]);
+
+  const loadAmenities = useCallback(async () => {
+    try {
+      const data = await getAmenities();
+      setAmenities(data);
+    } catch (err) {
+      setToast({ open: true, severity: "error", message: err.message || "Unable to load amenities." });
+    }
+  }, []);
 
   useEffect(() => {
     async function requireSession() {
@@ -93,15 +212,32 @@ export default function RoomsPage() {
         router.replace("/admin");
         return;
       }
-      loadRooms();
+      loadAmenities();
+      setSessionReady(true);
     }
 
     requireSession();
-  }, [router]);
+  }, [loadAmenities, router]);
+
+  useEffect(() => {
+    if (!sessionReady) return;
+    loadRooms();
+  }, [sessionReady, loadRooms]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/admin");
+  };
+
+  const handleOpenAdd = () => {
+    setForm(initialForm);
+    setAddOpen(true);
+  };
+
+  const handleCloseAdd = () => {
+    if (saving) return;
+    setAddOpen(false);
+    setForm(initialForm);
   };
 
   const handleChange = (event) => {
@@ -112,6 +248,35 @@ export default function RoomsPage() {
   const handleEditChange = (event) => {
     const { name, value } = event.target;
     setEditForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const renderAmenityValue = (selected) => {
+    const names = amenities
+      .filter((amenity) => selected.includes(amenity.id))
+      .map((amenity) => amenity.name);
+
+    return names.length ? names.join(", ") : "None";
+  };
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    setSearch(searchInput.trim());
+    setPage(0);
+  };
+
+  const handleResetFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setPage(0);
+  };
+
+  const handlePageChange = (event, nextPage) => {
+    setPage(nextPage);
+  };
+
+  const handleRowsPerPageChange = (event) => {
+    setRowsPerPage(Number(event.target.value));
+    setPage(0);
   };
 
   const validateRoomForm = (values) => {
@@ -133,9 +298,10 @@ export default function RoomsPage() {
 
     setSaving(true);
     try {
-      const room = await createRoom(form);
-      setRooms((current) => [room, ...current]);
+      await createRoom(form);
+      await loadRooms();
       setForm(initialForm);
+      setAddOpen(false);
       setToast({ open: true, severity: "success", message: "Room added." });
     } catch (err) {
       setToast({ open: true, severity: "error", message: err.message || "Unable to add room." });
@@ -167,8 +333,8 @@ export default function RoomsPage() {
 
     setEditSaving(true);
     try {
-      const room = await updateRoom(editRoom.id, editForm);
-      setRooms((current) => current.map((currentRoom) => (currentRoom.id === room.id ? room : currentRoom)));
+      await updateRoom(editRoom.id, editForm);
+      await loadRooms();
       setEditRoom(null);
       setEditForm(initialForm);
       setToast({ open: true, severity: "success", message: "Room updated." });
@@ -185,7 +351,7 @@ export default function RoomsPage() {
     setDeleteSaving(true);
     try {
       await deleteRoom(deleteRoomTarget.id);
-      setRooms((current) => current.filter((room) => room.id !== deleteRoomTarget.id));
+      await loadRooms();
       setDeleteRoomTarget(null);
       setToast({ open: true, severity: "success", message: "Room deleted." });
     } catch (err) {
@@ -206,7 +372,6 @@ export default function RoomsPage() {
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             Rooms
           </Typography>
-          <Typography color="text.secondary">Inventory, capacity, rates.</Typography>
         </Box>
 
         {loading && <LinearProgress sx={{ mb: 2, borderRadius: 8 }} />}
@@ -216,89 +381,59 @@ export default function RoomsPage() {
           </Typography>
         )}
 
-        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", lg: "420px minmax(0, 1fr)" } }}>
-          <Paper elevation={1} sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
-              Add room
-            </Typography>
-            <Box component="form" onSubmit={handleSubmit}>
-              <Stack spacing={2}>
-                <TextField label="Room name" name="name" value={form.name} onChange={handleChange} fullWidth required />
-                <TextField
-                  label="Description"
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  fullWidth
-                  multiline
-                  minRows={3}
-                />
-                <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                  <TextField
-                    label="Capacity"
-                    name="occupancy"
-                    type="number"
-                    value={form.occupancy}
-                    onChange={handleChange}
-                    inputProps={{ min: 1 }}
-                    fullWidth
-                    required
-                  />
-                  <TextField
-                    label="Quantity"
-                    name="quantity"
-                    type="number"
-                    value={form.quantity}
-                    onChange={handleChange}
-                    inputProps={{ min: 0 }}
-                    fullWidth
-                    required
-                  />
-                </Box>
-                <TextField
-                  label="Rate per night"
-                  name="rate"
-                  type="number"
-                  value={form.rate}
-                  onChange={handleChange}
-                  inputProps={{ min: 0, step: "0.01" }}
-                  fullWidth
-                  required
-                />
-                <FormControl fullWidth>
-                  <InputLabel id="room-status-label">Status</InputLabel>
-                  <Select
-                    labelId="room-status-label"
-                    label="Status"
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                  >
-                    <MenuItem value="active">Active</MenuItem>
-                    <MenuItem value="maintenance">Maintenance</MenuItem>
-                    <MenuItem value="disabled">Disabled</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  label="Image URL"
-                  name="imageUrl"
-                  value={form.imageUrl}
-                  onChange={handleChange}
-                  placeholder="https://..."
-                  fullWidth
-                />
-                <Button type="submit" variant="contained" size="large" disabled={saving}>
-                  {saving ? "Adding..." : "Add room"}
-                </Button>
-              </Stack>
-            </Box>
-          </Paper>
-
+        <Box>
           <TableContainer component={Paper} elevation={1}>
-            <Table sx={{ minWidth: 760 }}>
+            <Box
+              component="form"
+              onSubmit={handleSearchSubmit}
+              sx={{
+                borderBottom: 1,
+                borderColor: "divider",
+                display: "flex",
+                gap: 1,
+                p: 2,
+              }}
+            >
+              <Button
+                type="button"
+                variant="contained"
+                onClick={handleOpenAdd}
+                sx={{ flexShrink: 0 }}
+              >
+                Add room
+              </Button>
+              <TextField
+                label="Search rooms"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Room, amenity, status, rate..."
+                fullWidth
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<SearchIcon />}
+                disabled={loading}
+                sx={{ flexShrink: 0 }}
+              >
+                Search
+              </Button>
+              <Button
+                type="button"
+                variant="outlined"
+                startIcon={<RestartAltIcon />}
+                disabled={loading}
+                onClick={handleResetFilters}
+                sx={{ flexShrink: 0 }}
+              >
+                Reset
+              </Button>
+            </Box>
+            <Table sx={{ minWidth: 900 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: "grey.50" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Room</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Amenities</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Capacity</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Quantity</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rate</TableCell>
@@ -315,6 +450,19 @@ export default function RoomsPage() {
                       <Typography color="text.secondary" variant="body2">
                         {room.description || "No description"}
                       </Typography>
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 220 }}>
+                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                        {(room.amenities || []).length ? (
+                          room.amenities.map((amenity) => (
+                            <Chip key={amenity.id} size="small" label={amenity.name} />
+                          ))
+                        ) : (
+                          <Typography color="text.secondary" variant="body2">
+                            None
+                          </Typography>
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell>
                       <Chip size="small" label={`${room.occupancy} guests`} />
@@ -361,7 +509,7 @@ export default function RoomsPage() {
                 ))}
                 {!loading && rooms.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <Typography align="center" sx={{ py: 4 }}>
                         No rooms yet.
                       </Typography>
@@ -370,79 +518,71 @@ export default function RoomsPage() {
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={roomCount}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              rowsPerPageOptions={[10, 25, 50]}
+              onPageChange={handlePageChange}
+              onRowsPerPageChange={handleRowsPerPageChange}
+            />
           </TableContainer>
         </Box>
       </Container>
 
-      <Dialog open={Boolean(editRoom)} onClose={handleCloseEdit} fullWidth maxWidth="sm">
-        <DialogTitle>Edit room</DialogTitle>
+      <Dialog open={addOpen} onClose={handleCloseAdd} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ pr: 6 }}>
+          Add room
+          <IconButton
+            aria-label="Close"
+            disabled={saving}
+            onClick={handleCloseAdd}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
-          <Box component="form" id="edit-room-form" onSubmit={handleSaveEdit} sx={{ pt: 1 }}>
-            <Stack spacing={2}>
-              <TextField label="Room name" name="name" value={editForm.name} onChange={handleEditChange} fullWidth required />
-              <TextField
-                label="Description"
-                name="description"
-                value={editForm.description}
-                onChange={handleEditChange}
-                fullWidth
-                multiline
-                minRows={3}
-              />
-              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                <TextField
-                  label="Capacity"
-                  name="occupancy"
-                  type="number"
-                  value={editForm.occupancy}
-                  onChange={handleEditChange}
-                  inputProps={{ min: 1 }}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  label="Quantity"
-                  name="quantity"
-                  type="number"
-                  value={editForm.quantity}
-                  onChange={handleEditChange}
-                  inputProps={{ min: 0 }}
-                  fullWidth
-                  required
-                />
-              </Box>
-              <TextField
-                label="Rate per night"
-                name="rate"
-                type="number"
-                value={editForm.rate}
-                onChange={handleEditChange}
-                inputProps={{ min: 0, step: "0.01" }}
-                fullWidth
-                required
-              />
-              <FormControl fullWidth>
-                <InputLabel id="edit-room-status-label">Status</InputLabel>
-                <Select
-                  labelId="edit-room-status-label"
-                  label="Status"
-                  name="status"
-                  value={editForm.status}
-                  onChange={handleEditChange}
-                >
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="maintenance">Maintenance</MenuItem>
-                  <MenuItem value="disabled">Disabled</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField label="Image URL" name="imageUrl" value={editForm.imageUrl} onChange={handleEditChange} fullWidth />
-            </Stack>
-          </Box>
+          <RoomForm
+            formId="room-form"
+            values={form}
+            amenities={amenities}
+            onChange={handleChange}
+            onSubmit={handleSubmit}
+            renderAmenityValue={renderAmenityValue}
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseEdit} disabled={editSaving}>
-            Cancel
+          <Button type="submit" form="room-form" variant="contained" disabled={saving}>
+            {saving ? "Adding..." : "Add room"}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(editRoom)} onClose={handleCloseEdit} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ pr: 6 }}>
+          Edit room
+          <IconButton
+            aria-label="Close"
+            disabled={editSaving}
+            onClick={handleCloseEdit}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <RoomForm
+            formId="edit-room-form"
+            values={editForm}
+            amenities={amenities}
+            onChange={handleEditChange}
+            onSubmit={handleSaveEdit}
+            renderAmenityValue={renderAmenityValue}
+          />
+        </DialogContent>
+        <DialogActions>
           <Button type="submit" form="edit-room-form" variant="contained" disabled={editSaving}>
             {editSaving ? "Saving..." : "Save"}
           </Button>
@@ -450,16 +590,23 @@ export default function RoomsPage() {
       </Dialog>
 
       <Dialog open={Boolean(deleteRoomTarget)} onClose={() => setDeleteRoomTarget(null)} fullWidth maxWidth="xs">
-        <DialogTitle>Delete room</DialogTitle>
+        <DialogTitle sx={{ pr: 6 }}>
+          Delete room
+          <IconButton
+            aria-label="Close"
+            disabled={deleteSaving}
+            onClick={() => setDeleteRoomTarget(null)}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
           <Typography>
             Delete {deleteRoomTarget?.name || "this room"}? Rooms already used by reservations may be protected by the database.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteRoomTarget(null)} disabled={deleteSaving}>
-            Cancel
-          </Button>
           <Button color="error" variant="contained" onClick={handleDelete} disabled={deleteSaving}>
             {deleteSaving ? "Deleting..." : "Delete"}
           </Button>
