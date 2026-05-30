@@ -57,17 +57,17 @@ const statusColors = {
 };
 
 const statusFilterOptions = [
-  { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "confirmed", label: "Confirmed" },
   { value: "checked_in", label: "Checked in" },
   { value: "checked_out", label: "Checked out" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "all", label: "All" },
 ];
 
 function normalizeStatusFilter(value) {
   const normalizedValue = Array.isArray(value) ? value[0] : value;
-  return statusFilterOptions.some((option) => option.value === normalizedValue) ? normalizedValue : "all";
+  return statusFilterOptions.some((option) => option.value === normalizedValue) ? normalizedValue : "pending";
 }
 
 function reservationTotal(reservation) {
@@ -101,6 +101,10 @@ function roomSummary(rooms = []) {
   };
 }
 
+function formatDateTime(value) {
+  return value ? moment(value).format("MMM D, YYYY h:mm A") : "";
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState([]);
@@ -130,7 +134,8 @@ export default function DashboardPage() {
   const [deleteSaving, setDeleteSaving] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchByStatus, setSearchByStatus] = useState({});
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [dateFilter, setDateFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -180,8 +185,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!router.isReady) return;
-    setStatusFilter(normalizeStatusFilter(router.query.status));
-  }, [router.isReady, router.query.status]);
+    const nextStatus = normalizeStatusFilter(router.query.status);
+    const nextSearch = searchByStatus[nextStatus] || "";
+    setStatusFilter(nextStatus);
+    setSearchInput(nextSearch);
+    setSearch(nextSearch);
+  }, [router.isReady, router.query.status, searchByStatus]);
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -192,14 +201,17 @@ export default function DashboardPage() {
   const handleStatusFilterChange = (event, value) => {
     const nextStatus = normalizeStatusFilter(value);
     const nextQuery = { ...router.query };
+    const nextSearch = searchByStatus[nextStatus] || "";
 
-    if (nextStatus === "all") {
+    if (nextStatus === "pending") {
       delete nextQuery.status;
     } else {
       nextQuery.status = nextStatus;
     }
 
     setStatusFilter(nextStatus);
+    setSearchInput(nextSearch);
+    setSearch(nextSearch);
     setPage(0);
     router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
   };
@@ -215,27 +227,30 @@ export default function DashboardPage() {
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
-    setSearch(searchInput.trim());
+    const nextSearch = searchInput.trim();
+    setSearchByStatus((current) => ({ ...current, [statusFilter]: nextSearch }));
+    setSearch(nextSearch);
     setPage(0);
   };
 
   const handleResetFilters = () => {
     setSearchInput("");
     setSearch("");
-    setStatusFilter("all");
+    setSearchByStatus((current) => ({ ...current, [statusFilter]: "" }));
     setDateFilter("all");
     setPage(0);
-    router.replace({ pathname: router.pathname, query: {} }, undefined, { shallow: true });
+    const nextQuery = statusFilter === "pending" ? {} : { status: statusFilter };
+    router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
   };
 
   const handleStatusChange = async (id, status) => {
     setEditSaving(true);
     try {
-      await updateReservationStatus(id, status);
+      const updatedReservation = await updateReservationStatus(id, status);
       await loadReservations();
       await loadStats();
-      setViewReservation((current) => (current?.id === id ? { ...current, status } : current));
-      setEditReservation((current) => (current?.id === id ? { ...current, status } : current));
+      setViewReservation((current) => (current?.id === id ? { ...current, ...updatedReservation } : current));
+      setEditReservation((current) => (current?.id === id ? { ...current, ...updatedReservation } : current));
       setEditStatus(status);
       setToast({ open: true, severity: "success", message: `Status set to ${status}.` });
     } catch (err) {
@@ -701,6 +716,16 @@ export default function DashboardPage() {
                     <Typography component="li" variant="body2">
                       PHP {reservationTotal(viewReservation).toLocaleString()}
                     </Typography>
+                    {viewReservation.checked_in_at && (
+                      <Typography component="li" variant="body2">
+                        Checked in at {formatDateTime(viewReservation.checked_in_at)}
+                      </Typography>
+                    )}
+                    {viewReservation.checked_out_at && (
+                      <Typography component="li" variant="body2">
+                        Checked out at {formatDateTime(viewReservation.checked_out_at)}
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
 

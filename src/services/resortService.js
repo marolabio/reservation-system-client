@@ -359,6 +359,8 @@ export async function getAdminReservations() {
         children,
         status,
         notes,
+        checked_in_at,
+        checked_out_at,
         created_at,
         customers(first_name,last_name,email,contact_number),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status))
@@ -506,6 +508,8 @@ export async function getAdminReservationsPage({
         children,
         status,
         notes,
+        checked_in_at,
+        checked_out_at,
         created_at,
         customers(first_name,last_name,email,contact_number),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status))
@@ -551,12 +555,26 @@ export async function getReservationDashboardStats({ dateFilter = "all", search 
 }
 
 export async function updateReservationStatus(id, status) {
-  const { error } = await supabase
+  const updates = { status };
+  const now = new Date().toISOString();
+
+  if (status === "checked_in") {
+    updates.checked_in_at = now;
+  }
+
+  if (status === "checked_out") {
+    updates.checked_out_at = now;
+  }
+
+  const { data, error } = await supabase
     .from("reservations")
-    .update({ status })
-    .eq("id", id);
+    .update(updates)
+    .eq("id", id)
+    .select("id,status,checked_in_at,checked_out_at")
+    .single();
 
   if (error) throw error;
+  return data;
 }
 
 export async function checkInReservation(id) {
@@ -568,12 +586,7 @@ export async function checkOutReservation(reservation) {
     throw new Error("Reservation was not found.");
   }
 
-  const { error } = await supabase
-    .from("reservations")
-    .update({ status: "checked_out" })
-    .eq("id", reservation.id);
-
-  if (error) throw error;
+  await updateReservationStatus(reservation.id, "checked_out");
 }
 
 export async function updateReservationRooms(reservation, selectedRooms) {
