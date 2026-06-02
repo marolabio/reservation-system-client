@@ -127,7 +127,7 @@ export default function ReservationDetailPage() {
       return;
     }
 
-    router.push("/pending");
+    router.push("/bookings");
   };
 
   const financials = reservation ? getReservationFinancials(reservation) : null;
@@ -305,7 +305,11 @@ export default function ReservationDetailPage() {
     if (!nextAction) return;
 
     if (nextAction.href.startsWith("payment")) {
-      const paymentType = nextAction.href.includes("full_payment") ? "full_payment" : "downpayment";
+      const paymentType = nextAction.href.includes("full_payment")
+        ? "full_payment"
+        : nextAction.href.includes("partial_payment")
+          ? "partial_payment"
+          : "downpayment";
       const target = nextAction.href.includes("target=check_in") ? "check_in" : "";
       openPaymentModal(paymentType, target);
       return;
@@ -467,12 +471,14 @@ export default function ReservationDetailPage() {
                           {formatMoney(financials.paid)}
                         </Typography>
                       </Stack>
-                      <Stack direction="row" alignItems="center" spacing={2} sx={{ width: "100%" }}>
-                        <Typography color="text.secondary">Refunded</Typography>
-                        <Typography sx={{ flex: 1, fontWeight: 800, textAlign: "right", whiteSpace: "nowrap" }}>
-                          {formatMoney(financials.refunded)}
-                        </Typography>
-                      </Stack>
+                      {financials.refunded > 0 && (
+                        <Stack direction="row" alignItems="center" spacing={2} sx={{ width: "100%" }}>
+                          <Typography color="text.secondary">Refunded</Typography>
+                          <Typography sx={{ flex: 1, fontWeight: 800, textAlign: "right", whiteSpace: "nowrap" }}>
+                            {formatMoney(financials.refunded)}
+                          </Typography>
+                        </Stack>
+                      )}
                       <Divider />
                       <Stack direction="row" alignItems="center" spacing={2} sx={{ width: "100%" }}>
                         <Typography sx={{ fontWeight: 800 }}>Balance</Typography>
@@ -495,9 +501,6 @@ export default function ReservationDetailPage() {
                         <Button onClick={() => openPaymentModal("downpayment")} variant="outlined" fullWidth disabled={financials.balance <= 0}>
                           Record payment
                         </Button>
-                        <Button onClick={() => openPaymentModal("refund")} variant="outlined" fullWidth disabled={financials.netPaid <= 0}>
-                          Refund
-                        </Button>
                         {canCancelReservation && (
                           <Button onClick={openCancelModal} color="error" variant="outlined" fullWidth>
                             Cancel reservation
@@ -515,7 +518,7 @@ export default function ReservationDetailPage() {
 
       <Dialog open={paymentOpen} onClose={closePaymentModal} fullWidth maxWidth="xs">
         <DialogTitle sx={{ pr: 6, position: "relative" }}>
-          {paymentForm.paymentType === "refund" ? "Record refund" : "Record payment"}
+          Record payment
           <DialogCloseButton onClick={closePaymentModal} disabled={paymentSaving} />
         </DialogTitle>
         <DialogContent>
@@ -535,8 +538,8 @@ export default function ReservationDetailPage() {
               fullWidth
             >
               <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
+              <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
               <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
-              <MenuItem value="refund">{paymentTypeLabels.refund}</MenuItem>
             </TextField>
             <TextField
               label="Amount"
@@ -544,7 +547,7 @@ export default function ReservationDetailPage() {
               type="number"
               value={paymentForm.amount}
               onChange={handlePaymentFormChange}
-              inputProps={{ min: 1, step: "0.01" }}
+              inputProps={{ min: paymentForm.paymentType === "full_payment" ? financials?.balance || 1 : 1, step: "0.01" }}
               fullWidth
               required
             />
@@ -562,13 +565,12 @@ export default function ReservationDetailPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField label="Reference number" name="referenceNumber" value={paymentForm.referenceNumber} onChange={handlePaymentFormChange} fullWidth />
             <TextField label="Notes" name="notes" value={paymentForm.notes} onChange={handlePaymentFormChange} fullWidth multiline minRows={3} />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button variant="contained" onClick={handleSavePayment} disabled={paymentSaving || !paymentForm.amount}>
-            {paymentSaving ? "Saving..." : paymentForm.paymentType === "refund" ? "Save refund" : "Save payment"}
+            {paymentSaving ? "Saving..." : "Save payment"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -603,7 +605,6 @@ export default function ReservationDetailPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField label="Reference number" name="referenceNumber" value={cancelForm.referenceNumber} onChange={handleCancelFormChange} fullWidth />
             <TextField label="Cancellation notes" name="notes" value={cancelForm.notes} onChange={handleCancelFormChange} fullWidth multiline minRows={3} />
           </Stack>
         </DialogContent>
@@ -661,8 +662,11 @@ export default function ReservationDetailPage() {
               fullWidth
             >
               <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
+              <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
               <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
-              <MenuItem value="refund">{paymentTypeLabels.refund}</MenuItem>
+              {editPaymentForm.paymentType === "refund" && (
+                <MenuItem value="refund">{paymentTypeLabels.refund}</MenuItem>
+              )}
             </TextField>
             <TextField
               label="Amount"
@@ -670,7 +674,7 @@ export default function ReservationDetailPage() {
               type="number"
               value={editPaymentForm.amount}
               onChange={handleEditPaymentFormChange}
-              inputProps={{ min: 1, step: "0.01" }}
+              inputProps={{ min: editPaymentForm.paymentType === "full_payment" ? financials?.balance || 1 : 1, step: "0.01" }}
               fullWidth
               required
             />
@@ -688,7 +692,6 @@ export default function ReservationDetailPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField label="Reference number" name="referenceNumber" value={editPaymentForm.referenceNumber} onChange={handleEditPaymentFormChange} fullWidth />
             <TextField label="Notes" name="notes" value={editPaymentForm.notes} onChange={handleEditPaymentFormChange} fullWidth multiline minRows={3} />
           </Stack>
         </DialogContent>

@@ -110,7 +110,7 @@ export default function EditReservationPaymentPage() {
     <AdminLayout onSignOut={handleLogout}>
       <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
-          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/pending"} sx={{ alignSelf: "flex-start" }}>
+          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/bookings"} sx={{ alignSelf: "flex-start" }}>
             Back
           </Button>
           {loading && <LinearProgress sx={{ borderRadius: 8 }} />}
@@ -129,16 +129,27 @@ export default function EditReservationPaymentPage() {
                   </Box>
                   <TextField select label="Payment type" name="paymentType" value={form.paymentType} onChange={handleChange} fullWidth>
                     <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
+                    <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
                     <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
-                    <MenuItem value="refund">{paymentTypeLabels.refund}</MenuItem>
+                    {form.paymentType === "refund" && (
+                      <MenuItem value="refund">{paymentTypeLabels.refund}</MenuItem>
+                    )}
                   </TextField>
-                  <TextField label="Amount" name="amount" type="number" value={form.amount} onChange={handleChange} inputProps={{ min: 1, step: "0.01" }} fullWidth required />
+                  <TextField
+                    label="Amount"
+                    name="amount"
+                    type="number"
+                    value={form.amount}
+                    onChange={handleChange}
+                    inputProps={{ min: form.paymentType === "full_payment" ? financials.balance || 1 : 1, step: "0.01" }}
+                    fullWidth
+                    required
+                  />
                   <TextField select label="Method" name="method" value={form.method} onChange={handleChange} fullWidth>
                     {paymentMethods.map((method) => (
                       <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
                     ))}
                   </TextField>
-                  <TextField label="Reference number" name="referenceNumber" value={form.referenceNumber} onChange={handleChange} fullWidth />
                   <TextField label="Notes" name="notes" value={form.notes} onChange={handleChange} fullWidth multiline minRows={3} />
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between">
                     <Button color="error" variant="outlined" onClick={handleDelete} disabled={saving || deleting}>

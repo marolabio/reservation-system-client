@@ -7,7 +7,7 @@ import supabase from "../../../utils/supabase";
 import { addReservationPayment, getAdminReservationById, getReservationFinancials } from "../../../services/resortService";
 import { formatMoney, guestName, paymentMethods, paymentTypeLabels } from "../../../utils/reservationUi";
 
-export default function ReservationPaymentPage({ forcedType } = {}) {
+export default function ReservationPaymentPage() {
   const router = useRouter();
   const { id, type } = router.query;
   const [reservation, setReservation] = useState(null);
@@ -35,10 +35,12 @@ export default function ReservationPaymentPage({ forcedType } = {}) {
       try {
         const nextReservation = await getAdminReservationById(id);
         const financials = getReservationFinancials(nextReservation);
-        const paymentType = forcedType || (type === "full_payment" ? "full_payment" : "downpayment");
-        const amount = paymentType === "refund"
-          ? financials.netPaid
-          : paymentType === "full_payment"
+        const paymentType = type === "full_payment"
+          ? "full_payment"
+          : type === "partial_payment"
+            ? "partial_payment"
+            : "downpayment";
+        const amount = paymentType === "full_payment"
             ? financials.balance
             : Math.min(financials.downpaymentRequired, financials.balance);
 
@@ -56,7 +58,7 @@ export default function ReservationPaymentPage({ forcedType } = {}) {
     }
 
     loadReservation();
-  }, [forcedType, id, router, type]);
+  }, [id, router, type]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -87,7 +89,7 @@ export default function ReservationPaymentPage({ forcedType } = {}) {
     <AdminLayout onSignOut={handleLogout}>
       <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
-          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/pending"} sx={{ alignSelf: "flex-start" }}>
+          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/bookings"} sx={{ alignSelf: "flex-start" }}>
             Back
           </Button>
           {loading && <LinearProgress sx={{ borderRadius: 8 }} />}
@@ -98,29 +100,32 @@ export default function ReservationPaymentPage({ forcedType } = {}) {
                 <Stack spacing={2.5}>
                   <Box>
                     <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                      {form.paymentType === "refund" ? "Record refund" : "Record payment"}
+                      Record payment
                     </Typography>
                     <Typography color="text.secondary">
                       {guestName(reservation.customers)} / Balance {formatMoney(financials.balance)} / Net paid {formatMoney(financials.netPaid)}
                     </Typography>
                   </Box>
                   <TextField select label="Payment type" name="paymentType" value={form.paymentType} onChange={handleChange} fullWidth>
-                    {forcedType === "refund" ? (
-                      <MenuItem value="refund">{paymentTypeLabels.refund}</MenuItem>
-                    ) : (
-                      [
-                        <MenuItem key="downpayment" value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>,
-                        <MenuItem key="full_payment" value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>,
-                      ]
-                    )}
+                    <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
+                    <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
+                    <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
                   </TextField>
-                  <TextField label="Amount" name="amount" type="number" value={form.amount} onChange={handleChange} inputProps={{ min: 1, step: "0.01" }} fullWidth required />
+                  <TextField
+                    label="Amount"
+                    name="amount"
+                    type="number"
+                    value={form.amount}
+                    onChange={handleChange}
+                    inputProps={{ min: form.paymentType === "full_payment" ? financials.balance || 1 : 1, step: "0.01" }}
+                    fullWidth
+                    required
+                  />
                   <TextField select label="Method" name="method" value={form.method} onChange={handleChange} fullWidth>
                     {paymentMethods.map((method) => (
                       <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
                     ))}
                   </TextField>
-                  <TextField label="Reference number" name="referenceNumber" value={form.referenceNumber} onChange={handleChange} fullWidth />
                   <TextField label="Notes" name="notes" value={form.notes} onChange={handleChange} fullWidth multiline minRows={3} />
                   <Button
                     type="submit"
@@ -129,10 +134,10 @@ export default function ReservationPaymentPage({ forcedType } = {}) {
                     disabled={
                       saving ||
                       !form.amount ||
-                      (form.paymentType === "refund" ? financials.netPaid <= 0 : financials.balance <= 0)
+                      financials.balance <= 0
                     }
                   >
-                    {saving ? "Saving..." : form.paymentType === "refund" ? "Save refund" : "Save payment"}
+                    {saving ? "Saving..." : "Save payment"}
                   </Button>
                 </Stack>
               </Box>

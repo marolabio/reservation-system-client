@@ -9,6 +9,7 @@ import {
   LinearProgress,
   Paper,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
@@ -16,6 +17,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -23,7 +25,7 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SearchIcon from "@mui/icons-material/Search";
 import AdminLayout from "../layout/AdminLayout";
 import supabase from "../../utils/supabase";
-import { getAdminReservationsPage, getReservationFinancials } from "../../services/resortService";
+import { getAdminReservationsPage, getReservationDashboardStats, getReservationFinancials } from "../../services/resortService";
 import { formatDateRange, formatMoney, guestName, shortReference, statusColors } from "../../utils/reservationUi";
 import ReservationViewDialog from "./ReservationViewDialog";
 
@@ -35,8 +37,19 @@ function roomSummary(rooms = []) {
   return `${totalRooms} ${totalRooms === 1 ? "room" : "rooms"}${roomNames.length ? ` / ${roomNames.join(", ")}` : ""}`;
 }
 
-export default function ReservationQueuePage({ title, status, emptyMessage }) {
+function countFromStats(stats, status) {
+  if (status === "pending") return stats?.pending || 0;
+  if (status === "confirmed") return stats?.confirmed || 0;
+  if (status === "checked_in") return stats?.inHouse || 0;
+  if (status === "checked_out") return stats?.checkedOut || 0;
+  if (status === "cancelled") return stats?.cancelled || 0;
+  return 0;
+}
+
+export default function ReservationQueuePage({ title, status, emptyMessage, tabs }) {
   const router = useRouter();
+  const [activeStatus, setActiveStatus] = useState(status);
+  const [tabCounts, setTabCounts] = useState({});
   const [reservations, setReservations] = useState([]);
   const [reservationCount, setReservationCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -47,6 +60,7 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedReservation, setSelectedReservation] = useState(null);
+  const activeTab = tabs?.find((tab) => tab.status === activeStatus);
 
   const loadReservations = useCallback(async () => {
     setLoading(true);
@@ -55,7 +69,7 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
       const data = await getAdminReservationsPage({
         page,
         pageSize: rowsPerPage,
-        status,
+        status: activeStatus,
         search,
       });
       setReservations(data.reservations);
@@ -65,7 +79,23 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, status]);
+  }, [activeStatus, page, rowsPerPage, search]);
+
+  const loadTabCounts = useCallback(async () => {
+    if (!tabs?.length) return;
+
+    try {
+      const stats = await getReservationDashboardStats();
+      setTabCounts(
+        tabs.reduce((counts, tab) => ({
+          ...counts,
+          [tab.status]: countFromStats(stats, tab.status),
+        }), {})
+      );
+    } catch {
+      setTabCounts({});
+    }
+  }, [tabs]);
 
   useEffect(() => {
     async function requireSession() {
@@ -83,7 +113,12 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
   useEffect(() => {
     if (!sessionReady) return;
     loadReservations();
-  }, [sessionReady, loadReservations]);
+    loadTabCounts();
+  }, [sessionReady, loadReservations, loadTabCounts]);
+
+  useEffect(() => {
+    setActiveStatus(status);
+  }, [status]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -102,11 +137,26 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
     router.push("/admin");
   };
 
+  const handleTabChange = (event, nextStatus) => {
+    setActiveStatus(nextStatus);
+    setPage(0);
+  };
+
   const handleReservationUpdated = (nextReservation) => {
     setSelectedReservation(nextReservation);
+
+    if (nextReservation.status !== activeStatus) {
+      setReservations((current) => current.filter((reservation) => reservation.id !== nextReservation.id));
+      setReservationCount((current) => Math.max(current - 1, 0));
+      loadReservations();
+      loadTabCounts();
+      return;
+    }
+
     setReservations((current) => current.map((reservation) => (
       reservation.id === nextReservation.id ? nextReservation : reservation
     )));
+    loadTabCounts();
   };
 
   return (
@@ -121,6 +171,37 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
               {reservationCount} reservation{reservationCount === 1 ? "" : "s"}
             </Typography>
           </Box>
+
+          {tabs?.length ? (
+            <Paper elevation={1} sx={{ px: 1 }}>
+              <Tabs
+                value={activeStatus}
+                onChange={handleTabChange}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  minHeight: 56,
+                  "& .MuiTab-root": {
+                    minHeight: 56,
+                    textTransform: "none",
+                  },
+                }}
+              >
+                {tabs.map((tab) => (
+                  <Tab
+                    key={tab.status}
+                    value={tab.status}
+                    label={
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Box component="span">{tab.label}</Box>
+                        <Chip label={tabCounts[tab.status] || 0} size="small" />
+                      </Stack>
+                    }
+                  />
+                ))}
+              </Tabs>
+            </Paper>
+          ) : null}
 
           <Paper elevation={1} sx={{ p: 2 }}>
             <Box component="form" onSubmit={handleSearchSubmit} sx={{ display: "flex", gap: 1 }}>
@@ -200,7 +281,7 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
                   <TableRow>
                     <TableCell colSpan={7}>
                       <Typography align="center" sx={{ py: 4 }}>
-                        {emptyMessage || "No reservations found."}
+                        {activeTab?.emptyMessage || emptyMessage || "No reservations found."}
                       </Typography>
                     </TableCell>
                   </TableRow>

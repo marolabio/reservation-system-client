@@ -108,7 +108,7 @@ export default function ReservationActionPage({ action }) {
     <AdminLayout onSignOut={handleLogout}>
       <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
-          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/pending"} sx={{ alignSelf: "flex-start" }}>
+          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/bookings"} sx={{ alignSelf: "flex-start" }}>
             Back
           </Button>
           {loading && <LinearProgress sx={{ borderRadius: 8 }} />}
@@ -148,7 +148,6 @@ export default function ReservationActionPage({ action }) {
                         <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
                       ))}
                     </TextField>
-                    <TextField label="Reference number" name="referenceNumber" value={form.referenceNumber} onChange={handleChange} fullWidth />
                     <TextField label="Cancellation notes" name="notes" value={form.notes} onChange={handleChange} fullWidth multiline minRows={3} />
                   </>
                 )}

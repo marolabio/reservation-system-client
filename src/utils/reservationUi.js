@@ -10,6 +10,7 @@ export const statusColors = {
 
 export const paymentTypeLabels = {
   downpayment: "Downpayment",
+  partial_payment: "Partial payment",
   full_payment: "Full payment",
   refund: "Refund",
 };
@@ -47,19 +48,19 @@ export function nextReservationAction(reservation, financials) {
   if (!reservation || ["cancelled", "checked_out"].includes(reservation.status)) return null;
 
   if (reservation.status === "pending") {
-    if (financials.netPaid <= 0) return { label: "Record downpayment", href: "payment?type=downpayment" };
+    if (financials.netPaid <= 0) return { label: "Record payment", href: "payment?type=downpayment" };
     return { label: "Confirm reservation", href: "confirm" };
   }
 
   if (reservation.status === "confirmed") {
     if (financials.netPaid < financials.checkInPaymentRequired) {
-      return { label: "Record half payment", href: "payment?type=downpayment&target=check_in" };
+      return { label: "Record payment", href: "payment?type=partial_payment&target=check_in" };
     }
     return { label: "Check in", href: "check-in" };
   }
 
   if (reservation.status === "checked_in") {
-    if (financials.balance > 0) return { label: "Record full payment", href: "payment?type=full_payment" };
+    if (financials.balance > 0) return { label: "Record payment", href: "payment?type=full_payment" };
     return { label: "Check out", href: "check-out" };
   }
 

@@ -156,12 +156,11 @@ export default function ReportsPage() {
   const moneyCards = [
     { label: "Gross sales", value: formatMoney(financials.grossSales) },
     { label: "Collected", value: formatMoney(financials.collected) },
-    { label: "Refunds", value: formatMoney(financials.refunds) },
+    financials.refunds > 0 ? { label: "Refunds", value: formatMoney(financials.refunds) } : null,
     { label: "Open balance", value: formatMoney(financials.balance) },
-  ];
+  ].filter(Boolean);
 
   const countCards = [
-    { label: "Reservations", value: stats?.total || 0 },
     { label: "Pending", value: stats?.pending || 0 },
     { label: "Confirmed", value: stats?.confirmed || 0 },
     { label: "Checked in", value: stats?.inHouse || 0 },
@@ -246,22 +245,21 @@ export default function ReportsPage() {
             ))}
           </Box>
 
-          <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(6, 1fr)" } }}>
-            {countCards.map((card) => (
-              <Paper key={card.label} elevation={1} sx={{ p: 2 }}>
-                <Typography color="text.secondary" variant="body2">{card.label}</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
-                  {card.value}
-                </Typography>
-              </Paper>
-            ))}
-          </Box>
-
           <TableContainer component={Paper} elevation={1}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
               <Typography variant="h6" sx={{ fontWeight: 800 }}>
                 Reservations
               </Typography>
+              <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(5, 1fr)" }, mt: 2 }}>
+                {countCards.map((card) => (
+                  <Paper key={card.label} variant="outlined" sx={{ p: 1.5 }}>
+                    <Typography color="text.secondary" variant="body2">{card.label}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, mt: 0.25 }}>
+                      {card.value}
+                    </Typography>
+                  </Paper>
+                ))}
+              </Box>
             </Box>
             <Table sx={{ minWidth: 1050 }}>
               <TableHead>
@@ -271,7 +269,9 @@ export default function ReportsPage() {
                   <TableCell sx={{ fontWeight: 800 }}>Stay</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Total</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Paid</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Refunded</TableCell>
+                  {financials.refunds > 0 && (
+                    <TableCell sx={{ fontWeight: 800 }}>Refunded</TableCell>
+                  )}
                   <TableCell sx={{ fontWeight: 800 }}>Balance</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Action</TableCell>
@@ -292,7 +292,9 @@ export default function ReportsPage() {
                       <TableCell sx={{ minWidth: 170 }}>{formatDateRange(reservation)}</TableCell>
                       <TableCell sx={{ fontWeight: 800 }}>{formatMoney(financial.total)}</TableCell>
                       <TableCell>{formatMoney(financial.paid)}</TableCell>
-                      <TableCell>{formatMoney(financial.refunded)}</TableCell>
+                      {financials.refunds > 0 && (
+                        <TableCell>{formatMoney(financial.refunded)}</TableCell>
+                      )}
                       <TableCell sx={{ color: financial.balance > 0 ? "error.main" : "success.main", fontWeight: 800 }}>
                         {formatMoney(financial.balance)}
                       </TableCell>
@@ -309,7 +311,7 @@ export default function ReportsPage() {
                 })}
                 {!loading && reservations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={financials.refunds > 0 ? 9 : 8}>
                       <Typography align="center" sx={{ py: 4 }}>
                         No reservations found for this date range.
                       </Typography>

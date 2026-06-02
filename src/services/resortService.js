@@ -699,11 +699,15 @@ export async function checkOutReservation(reservation) {
 }
 
 export async function addReservationPayment(reservation, values) {
+  return createReservationPayment(reservation, values, { allowRefund: false });
+}
+
+async function createReservationPayment(reservation, values, { allowRefund = false } = {}) {
   if (!reservation?.id) {
     throw new Error("Reservation was not found.");
   }
 
-  validateReservationPayment(reservation, values);
+  validateReservationPayment(reservation, values, undefined, { allowRefund });
 
   const { data, error } = await supabase
     .from("reservation_payments")
@@ -734,13 +738,18 @@ function getReservationPaymentPayload(values) {
   };
 }
 
-function validateReservationPayment(reservation, values, excludedPaymentId) {
+function validateReservationPayment(reservation, values, excludedPaymentId, { allowRefund = true } = {}) {
   const amount = Number(values.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error("Enter a valid payment amount.");
   }
 
   const paymentType = values.paymentType || "downpayment";
+
+  if (paymentType === "refund" && !allowRefund) {
+    throw new Error("Refunds can only be recorded when cancelling a reservation.");
+  }
+
   const comparableReservation = {
     ...reservation,
     reservation_payments: (reservation.reservation_payments || []).filter(
@@ -753,6 +762,8 @@ function validateReservationPayment(reservation, values, excludedPaymentId) {
     if (amount > financials.netPaid) {
       throw new Error("Refund cannot be greater than the net paid amount.");
     }
+  } else if (paymentType === "full_payment" && amount < financials.balance) {
+    throw new Error("Full payment must cover the remaining balance.");
   } else if (amount > financials.balance) {
     throw new Error("Payment cannot be greater than the remaining balance.");
   }
@@ -768,7 +779,7 @@ export async function updateReservationPayment(reservation, paymentId, values) {
     throw new Error("Payment record was not found.");
   }
 
-  validateReservationPayment(reservation, values, paymentId);
+  validateReservationPayment(reservation, values, paymentId, { allowRefund: existingPayment.payment_type === "refund" });
 
   const { data, error } = await supabase
     .from("reservation_payments")
@@ -809,13 +820,13 @@ export async function cancelReservation(reservation, values = {}) {
   }
 
   if (refundAmount > 0) {
-    await addReservationPayment(reservation, {
+    await createReservationPayment(reservation, {
       paymentType: "refund",
       amount: refundAmount,
       method: values.method || "cash",
       referenceNumber: values.referenceNumber,
       notes: values.notes || "Cancellation refund",
-    });
+    }, { allowRefund: true });
   }
 
   return updateReservationStatus(reservation.id, "cancelled");

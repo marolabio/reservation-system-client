@@ -5,7 +5,7 @@ export default function CustomersPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/pending");
+    router.replace("/bookings");
   }, [router]);
 
   return null;

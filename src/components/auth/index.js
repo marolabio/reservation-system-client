@@ -37,7 +37,7 @@ const SignInSide = (props) => {
 
   useEffect(() => {
     if (isAuthenticated && !loading) {
-      router.replace("/pending");
+      router.replace("/bookings");
     }
   }, [isAuthenticated, loading, router]);
 

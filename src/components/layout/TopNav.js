@@ -8,7 +8,7 @@ const guestLinks = [
 ];
 
 const adminLinks = [
-  { label: "Pending", href: "/pending" },
+  { label: "Bookings", href: "/bookings" },
   { label: "New booking", href: "/admin-booking" },
   { label: "Calendar", href: "/calendar" },
 ];

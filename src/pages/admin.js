@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getSession();
-      if (data.session) router.replace("/pending");
+      if (data.session) router.replace("/bookings");
     }
     checkSession();
   }, [router]);
@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
       return;
     }
 
-    router.push("/pending");
+    router.push("/bookings");
   };
 
   return (

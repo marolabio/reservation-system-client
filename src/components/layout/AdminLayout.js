@@ -1,27 +1,22 @@
-import React, { useEffect, useState } from "react";
-import { Box, Button, Chip, Divider, Stack, Tooltip, Typography } from "@mui/material";
+import React from "react";
+import { Box, Button, Divider, Stack, Tooltip, Typography } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CategoryIcon from "@mui/icons-material/Category";
 import HotelIcon from "@mui/icons-material/Hotel";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AddBusinessIcon from "@mui/icons-material/AddBusiness";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
-import FactCheckIcon from "@mui/icons-material/FactCheck";
-import LoginIcon from "@mui/icons-material/Login";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import CancelIcon from "@mui/icons-material/Cancel";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import { useRouter } from "next/router";
-import { getReservationDashboardStats } from "../../services/resortService";
 
 const navSections = [
   {
     label: "Reservations",
     items: [
       { label: "New booking", href: "/admin-booking", icon: AddBusinessIcon },
-      { label: "Pending", href: "/pending", icon: AssignmentTurnedInIcon },
-      { label: "Confirmed", href: "/confirmed", icon: FactCheckIcon },
-      { label: "Checked in", href: "/checkin", icon: LoginIcon },
+      { label: "Bookings", href: "/bookings", icon: AssignmentTurnedInIcon },
       { label: "Calendar", href: "/calendar", icon: CalendarMonthIcon },
     ],
   },
@@ -44,36 +39,6 @@ const navSections = [
 
 export default function AdminLayout({ children, onSignOut }) {
   const router = useRouter();
-  const [counts, setCounts] = useState({
-    pending: 0,
-    confirmed: 0,
-    checkin: 0,
-  });
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadCounts() {
-      try {
-        const stats = await getReservationDashboardStats();
-        if (!active) return;
-        setCounts({
-          pending: stats.pending || 0,
-          confirmed: stats.confirmed || 0,
-          checkin: stats.inHouse || 0,
-        });
-      } catch {
-        if (!active) return;
-        setCounts({ pending: 0, confirmed: 0, checkin: 0 });
-      }
-    }
-
-    loadCounts();
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   return (
     <Box sx={{ bgcolor: "background.default", display: "flex", minHeight: "100vh" }}>
@@ -96,7 +61,7 @@ export default function AdminLayout({ children, onSignOut }) {
         <Box sx={{ px: { xs: 1, md: 2 }, py: 2.25 }}>
           <Typography
             component="a"
-            href="/pending"
+            href="/bookings"
             sx={{
               color: "text.primary",
               display: { xs: "none", md: "block" },
@@ -108,7 +73,7 @@ export default function AdminLayout({ children, onSignOut }) {
           </Typography>
           <Typography
             component="a"
-            href="/pending"
+            href="/bookings"
             sx={{
               color: "text.primary",
               display: { xs: "block", md: "none" },
@@ -143,19 +108,11 @@ export default function AdminLayout({ children, onSignOut }) {
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const active = router.pathname === item.href;
-                  const count =
-                    item.href === "/pending"
-                      ? counts.pending
-                      : item.href === "/confirmed"
-                        ? counts.confirmed
-                        : item.href === "/checkin"
-                          ? counts.checkin
-                          : null;
 
                   return (
                     <Tooltip
                       key={item.href}
-                      title={count === null ? item.label : `${item.label}: ${count}`}
+                      title={item.label}
                       placement="right"
                       disableHoverListener={false}
                     >
@@ -183,44 +140,6 @@ export default function AdminLayout({ children, onSignOut }) {
                         <Box component="span" sx={{ display: { xs: "none", md: "inline" }, flexGrow: 1, textAlign: "left" }}>
                           {item.label}
                         </Box>
-                        {count !== null && (
-                          <Chip
-                            label={count}
-                            size="small"
-                            color={active ? "default" : "primary"}
-                            sx={{
-                              display: { xs: "none", md: "inline-flex" },
-                              height: 22,
-                              minWidth: 30,
-                              "& .MuiChip-label": {
-                                px: 0.75,
-                                fontWeight: 800,
-                              },
-                            }}
-                          />
-                        )}
-                        {count !== null && (
-                          <Box
-                            component="span"
-                            sx={{
-                              alignItems: "center",
-                              bgcolor: active ? "primary.contrastText" : "primary.main",
-                              borderRadius: 999,
-                              color: active ? "primary.main" : "primary.contrastText",
-                              display: { xs: "inline-flex", md: "none" },
-                              fontSize: 11,
-                              fontWeight: 800,
-                              height: 18,
-                              justifyContent: "center",
-                              minWidth: 18,
-                              position: "absolute",
-                              right: 8,
-                              top: 5,
-                            }}
-                          >
-                            {count}
-                          </Box>
-                        )}
                       </Button>
                     </Tooltip>
                   );
