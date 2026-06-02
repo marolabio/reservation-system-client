@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import AdminLayout from "../components/layout/AdminLayout";
+import ReservationViewDialog from "../components/reservation/ReservationViewDialog";
 import supabase from "../utils/supabase";
 import { getAdminReservations } from "../services/resortService";
 
@@ -102,6 +103,13 @@ export default function CalendarPage() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/admin");
+  };
+
+  const handleReservationUpdated = (nextReservation) => {
+    setSelectedReservation(nextReservation);
+    setReservations((current) => current.map((reservation) => (
+      reservation.id === nextReservation.id ? nextReservation : reservation
+    )));
   };
 
   const calendarDays = useMemo(() => {
@@ -467,146 +475,12 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <ReservationViewDialog
         open={Boolean(selectedReservation)}
+        reservation={selectedReservation}
         onClose={() => setSelectedReservation(null)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle sx={{ pb: 1, pr: 6 }}>
-          <IconButton
-            aria-label="Close"
-            onClick={() => setSelectedReservation(null)}
-            sx={{ position: "absolute", right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            Reservation details
-          </Typography>
-          {selectedReservation && (
-            <Typography color="text.secondary" variant="body2">
-              {moment(selectedReservation.checkin).format("MMM D, YYYY")} -{" "}
-              {moment(selectedReservation.checkout).format("MMM D, YYYY")}
-            </Typography>
-          )}
-        </DialogTitle>
-        <DialogContent>
-          {selectedReservation && (
-            <Stack spacing={1.5} sx={{ pb: 1 }}>
-              {(() => {
-                const customer = selectedReservation.customers || {};
-                const reservedRooms = selectedReservation.reserved_rooms || [];
-
-                return (
-                  <>
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                      <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        spacing={2}
-                        alignItems="flex-start"
-                      >
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 800 }}>
-                            {guestName(selectedReservation)}
-                          </Typography>
-                          <Typography color="text.secondary" variant="body2">
-                            {customer.email || "No email"} /{" "}
-                            {customer.contact_number || "No contact number"}
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={selectedReservation.status}
-                          color={
-                            statusColors[selectedReservation.status] ||
-                            "default"
-                          }
-                          size="small"
-                        />
-                      </Stack>
-
-                      <Box
-                        sx={{
-                          display: "grid",
-                          gap: 1,
-                          gridTemplateColumns: {
-                            xs: "1fr",
-                            sm: "repeat(2, minmax(0, 1fr))",
-                          },
-                          mt: 1.5,
-                        }}
-                      >
-                        <Box>
-                          <Typography color="text.secondary" variant="caption">
-                            Stay
-                          </Typography>
-                          <Typography variant="body2">
-                            {moment(selectedReservation.checkin).format(
-                              "MMM D, YYYY",
-                            )}{" "}
-                            -{" "}
-                            {moment(selectedReservation.checkout).format(
-                              "MMM D, YYYY",
-                            )}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography color="text.secondary" variant="caption">
-                            Guests
-                          </Typography>
-                          <Typography variant="body2">
-                            {selectedReservation.adult} adult
-                            {Number(selectedReservation.adult) === 1 ? "" : "s"}
-                            , {selectedReservation.children} child
-                            {Number(selectedReservation.children) === 1
-                              ? ""
-                              : "ren"}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Paper>
-
-                    <Paper
-                      variant="outlined"
-                      sx={{ bgcolor: "grey.50", p: 1.5 }}
-                    >
-                      <Typography sx={{ fontWeight: 800, mb: 1 }}>
-                        Rooms
-                      </Typography>
-                      <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
-                        {reservedRooms.map((reservedRoom) => (
-                          <Typography
-                            component="li"
-                            key={reservedRoom.id}
-                            sx={{ mb: 0.75, pl: 0.25 }}
-                          >
-                            <Box component="span" sx={{ fontWeight: 700 }}>
-                              {reservedRoom.rooms?.name || "Room"}
-                            </Box>{" "}
-                            x {reservedRoom.reserved_quantity}
-                            <Typography
-                              component="span"
-                              color="text.secondary"
-                              sx={{ display: "block", fontSize: 13 }}
-                            >
-                              PHP{" "}
-                              {Number(
-                                reservedRoom.rooms?.rate || 0,
-                              ).toLocaleString()}{" "}
-                              / night
-                            </Typography>
-                          </Typography>
-                        ))}
-                      </Box>
-                    </Paper>
-                  </>
-                );
-              })()}
-            </Stack>
-          )}
-        </DialogContent>
-      </Dialog>
+        onReservationUpdated={handleReservationUpdated}
+      />
       <Snackbar
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
         open={toast.open}

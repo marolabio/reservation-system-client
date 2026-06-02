@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import {
   Alert,
@@ -26,6 +25,7 @@ import AdminLayout from "../layout/AdminLayout";
 import supabase from "../../utils/supabase";
 import { getAdminReservationsPage, getReservationFinancials } from "../../services/resortService";
 import { formatDateRange, formatMoney, guestName, shortReference, statusColors } from "../../utils/reservationUi";
+import ReservationViewDialog from "./ReservationViewDialog";
 
 function roomSummary(rooms = []) {
   const totalRooms = rooms.reduce((sum, room) => sum + Number(room.reserved_quantity || 0), 0);
@@ -46,6 +46,7 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [selectedReservation, setSelectedReservation] = useState(null);
 
   const loadReservations = useCallback(async () => {
     setLoading(true);
@@ -99,6 +100,13 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/admin");
+  };
+
+  const handleReservationUpdated = (nextReservation) => {
+    setSelectedReservation(nextReservation);
+    setReservations((current) => current.map((reservation) => (
+      reservation.id === nextReservation.id ? nextReservation : reservation
+    )));
   };
 
   return (
@@ -181,8 +189,8 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
                         <Chip label={reservation.status} color={statusColors[reservation.status] || "default"} size="small" />
                       </TableCell>
                       <TableCell>
-                        <Button size="small" variant="outlined" component={Link} href={`/reservations/${reservation.id}`}>
-                          Open
+                        <Button size="small" variant="outlined" onClick={() => setSelectedReservation(reservation)}>
+                          View
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -214,6 +222,12 @@ export default function ReservationQueuePage({ title, status, emptyMessage }) {
           </TableContainer>
         </Stack>
       </Container>
+      <ReservationViewDialog
+        open={Boolean(selectedReservation)}
+        reservation={selectedReservation}
+        onClose={() => setSelectedReservation(null)}
+        onReservationUpdated={handleReservationUpdated}
+      />
     </AdminLayout>
   );
 }

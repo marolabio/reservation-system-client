@@ -110,7 +110,7 @@ export default function EditReservationPaymentPage() {
     <AdminLayout onSignOut={handleLogout}>
       <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
-          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/dashboard"} sx={{ alignSelf: "flex-start" }}>
+          <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/pending"} sx={{ alignSelf: "flex-start" }}>
             Back
           </Button>
           {loading && <LinearProgress sx={{ borderRadius: 8 }} />}

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import moment from "moment";
 import {
@@ -27,6 +26,7 @@ import AdminLayout from "../layout/AdminLayout";
 import supabase from "../../utils/supabase";
 import { getAdminReservationsPage, getReservationDashboardStats, getReservationFinancials } from "../../services/resortService";
 import { formatDateRange, formatMoney, guestName, shortReference, statusColors } from "../../utils/reservationUi";
+import ReservationViewDialog from "../reservation/ReservationViewDialog";
 
 function getDefaultCustomDates() {
   return {
@@ -62,6 +62,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
   const [error, setError] = useState("");
+  const [selectedReservation, setSelectedReservation] = useState(null);
 
   const activeDateParams = useMemo(() => {
     if (dateFilter !== "custom") return { dateFilter };
@@ -143,6 +144,13 @@ export default function ReportsPage() {
     if (!value) return;
     setDateFilter(value);
     setPage(0);
+  };
+
+  const handleReservationUpdated = (nextReservation) => {
+    setSelectedReservation(nextReservation);
+    setReservations((current) => current.map((reservation) => (
+      reservation.id === nextReservation.id ? nextReservation : reservation
+    )));
   };
 
   const moneyCards = [
@@ -292,8 +300,8 @@ export default function ReportsPage() {
                         <Chip label={reservation.status} color={statusColors[reservation.status] || "default"} size="small" />
                       </TableCell>
                       <TableCell>
-                        <Button component={Link} href={`/reservations/${reservation.id}`} size="small" variant="outlined">
-                          Open
+                        <Button onClick={() => setSelectedReservation(reservation)} size="small" variant="outlined">
+                          View
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -325,6 +333,12 @@ export default function ReportsPage() {
           </TableContainer>
         </Stack>
       </Container>
+      <ReservationViewDialog
+        open={Boolean(selectedReservation)}
+        reservation={selectedReservation}
+        onClose={() => setSelectedReservation(null)}
+        onReservationUpdated={handleReservationUpdated}
+      />
     </AdminLayout>
   );
 }

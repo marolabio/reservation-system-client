@@ -52,7 +52,9 @@ export function nextReservationAction(reservation, financials) {
   }
 
   if (reservation.status === "confirmed") {
-    if (financials.balance > 0) return { label: "Record full payment", href: "payment?type=full_payment" };
+    if (financials.netPaid < financials.checkInPaymentRequired) {
+      return { label: "Record half payment", href: "payment?type=downpayment&target=check_in" };
+    }
     return { label: "Check in", href: "check-in" };
   }
 

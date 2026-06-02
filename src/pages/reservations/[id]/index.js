@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   LinearProgress,
   MenuItem,
   Paper,
@@ -19,6 +20,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import supabase from "../../../utils/supabase";
 import {
@@ -27,6 +29,7 @@ import {
   deleteReservationPayment,
   getAdminReservationById,
   getReservationFinancials,
+  updateReservationStatus,
   updateReservationPayment,
 } from "../../../services/resortService";
 import {
@@ -56,6 +59,19 @@ const emptyCancelForm = {
   notes: "",
 };
 
+function DialogCloseButton({ onClick, disabled = false }) {
+  return (
+    <IconButton
+      aria-label="Close"
+      onClick={onClick}
+      disabled={disabled}
+      sx={{ position: "absolute", right: 8, top: 8 }}
+    >
+      <CloseIcon />
+    </IconButton>
+  );
+}
+
 export default function ReservationDetailPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -68,6 +84,8 @@ export default function ReservationDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelForm, setCancelForm] = useState(emptyCancelForm);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutSaving, setCheckoutSaving] = useState(false);
   const [editPayment, setEditPayment] = useState(null);
   const [editPaymentSaving, setEditPaymentSaving] = useState(false);
   const [editPaymentDeleting, setEditPaymentDeleting] = useState(false);
@@ -109,12 +127,14 @@ export default function ReservationDetailPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/pending");
   };
 
   const financials = reservation ? getReservationFinancials(reservation) : null;
   const nextAction = reservation && financials ? nextReservationAction(reservation, financials) : null;
   const basePath = reservation ? `/reservations/${reservation.id}` : "";
+  const actionsAvailable = reservation && !["checked_out", "cancelled"].includes(reservation.status);
+  const canCancelReservation = reservation && !["checked_in", "checked_out", "cancelled"].includes(reservation.status);
 
   const reloadReservation = async () => {
     const nextReservation = await getAdminReservationById(id);
@@ -122,12 +142,15 @@ export default function ReservationDetailPage() {
     return nextReservation;
   };
 
-  const openPaymentModal = (paymentType = "downpayment") => {
+  const openPaymentModal = (paymentType = "downpayment", target = "") => {
+    const amountNeededForCheckIn = Math.max(financials.checkInPaymentRequired - financials.netPaid, 0);
     const nextAmount =
       paymentType === "refund"
         ? financials.netPaid
         : paymentType === "full_payment"
           ? financials.balance
+          : target === "check_in"
+            ? Math.min(amountNeededForCheckIn, financials.balance)
           : Math.min(financials.downpaymentRequired, financials.balance);
 
     setPaymentForm({
@@ -197,6 +220,31 @@ export default function ReservationDetailPage() {
     }
   };
 
+  const openCheckoutModal = () => {
+    setCheckoutOpen(true);
+  };
+
+  const closeCheckoutModal = () => {
+    if (checkoutSaving) return;
+    setCheckoutOpen(false);
+  };
+
+  const handleCheckoutReservation = async () => {
+    if (!reservation) return;
+    setCheckoutSaving(true);
+    setError("");
+
+    try {
+      await updateReservationStatus(reservation.id, "checked_out");
+      await reloadReservation();
+      setCheckoutOpen(false);
+    } catch (err) {
+      setError(err.message || "Unable to check out guest.");
+    } finally {
+      setCheckoutSaving(false);
+    }
+  };
+
   const openEditPaymentModal = (payment) => {
     setEditPayment(payment);
     setEditPaymentForm({
@@ -258,7 +306,13 @@ export default function ReservationDetailPage() {
 
     if (nextAction.href.startsWith("payment")) {
       const paymentType = nextAction.href.includes("full_payment") ? "full_payment" : "downpayment";
-      openPaymentModal(paymentType);
+      const target = nextAction.href.includes("target=check_in") ? "check_in" : "";
+      openPaymentModal(paymentType, target);
+      return;
+    }
+
+    if (nextAction.href === "check-out") {
+      openCheckoutModal();
     }
   };
 
@@ -301,7 +355,7 @@ export default function ReservationDetailPage() {
                     justifyContent={{ xs: "flex-start", md: "flex-end" }}
                     sx={{ justifySelf: { xs: "start", md: "end" }, minWidth: 0 }}
                   >
-                    {nextAction?.href.startsWith("payment") ? (
+                    {nextAction?.href.startsWith("payment") || nextAction?.href === "check-out" ? (
                       <Button onClick={handlePrimaryAction} variant="contained">
                         {nextAction.label}
                       </Button>
@@ -377,13 +431,15 @@ export default function ReservationDetailPage() {
                                 {payment.payment_type === "refund" ? "-" : "+"}
                                 {formatMoney(payment.amount)}
                               </Typography>
-                              <Button
-                                onClick={() => openEditPaymentModal(payment)}
-                                size="small"
-                                variant="outlined"
-                              >
-                                Edit
-                              </Button>
+                              {actionsAvailable && (
+                                <Button
+                                  onClick={() => openEditPaymentModal(payment)}
+                                  size="small"
+                                  variant="outlined"
+                                >
+                                  Edit
+                                </Button>
+                              )}
                             </Box>
                           ))}
                       </Stack>
@@ -430,22 +486,26 @@ export default function ReservationDetailPage() {
                     </Stack>
                   </Paper>
 
-                  <Paper elevation={1} sx={{ p: 2.5 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
-                      Actions
-                    </Typography>
-                    <Stack spacing={1}>
-                      <Button onClick={() => openPaymentModal("downpayment")} variant="outlined" fullWidth disabled={financials.balance <= 0}>
-                        Record payment
-                      </Button>
-                      <Button onClick={() => openPaymentModal("refund")} variant="outlined" fullWidth disabled={financials.netPaid <= 0}>
-                        Refund
-                      </Button>
-                      <Button onClick={openCancelModal} color="error" variant="outlined" fullWidth disabled={reservation.status === "cancelled"}>
-                        Cancel reservation
-                      </Button>
-                    </Stack>
-                  </Paper>
+                  {actionsAvailable && (
+                    <Paper elevation={1} sx={{ p: 2.5 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
+                        Actions
+                      </Typography>
+                      <Stack spacing={1}>
+                        <Button onClick={() => openPaymentModal("downpayment")} variant="outlined" fullWidth disabled={financials.balance <= 0}>
+                          Record payment
+                        </Button>
+                        <Button onClick={() => openPaymentModal("refund")} variant="outlined" fullWidth disabled={financials.netPaid <= 0}>
+                          Refund
+                        </Button>
+                        {canCancelReservation && (
+                          <Button onClick={openCancelModal} color="error" variant="outlined" fullWidth>
+                            Cancel reservation
+                          </Button>
+                        )}
+                      </Stack>
+                    </Paper>
+                  )}
                 </Stack>
               </Box>
             </>
@@ -454,7 +514,10 @@ export default function ReservationDetailPage() {
       </Container>
 
       <Dialog open={paymentOpen} onClose={closePaymentModal} fullWidth maxWidth="xs">
-        <DialogTitle>{paymentForm.paymentType === "refund" ? "Record refund" : "Record payment"}</DialogTitle>
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          {paymentForm.paymentType === "refund" ? "Record refund" : "Record payment"}
+          <DialogCloseButton onClick={closePaymentModal} disabled={paymentSaving} />
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
@@ -504,7 +567,6 @@ export default function ReservationDetailPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closePaymentModal} disabled={paymentSaving}>Cancel</Button>
           <Button variant="contained" onClick={handleSavePayment} disabled={paymentSaving || !paymentForm.amount}>
             {paymentSaving ? "Saving..." : paymentForm.paymentType === "refund" ? "Save refund" : "Save payment"}
           </Button>
@@ -512,7 +574,10 @@ export default function ReservationDetailPage() {
       </Dialog>
 
       <Dialog open={cancelOpen} onClose={closeCancelModal} fullWidth maxWidth="xs">
-        <DialogTitle>Cancel reservation</DialogTitle>
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Cancel reservation
+          <DialogCloseButton onClick={closeCancelModal} disabled={cancelSaving} />
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
@@ -543,15 +608,42 @@ export default function ReservationDetailPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeCancelModal} disabled={cancelSaving}>Close</Button>
           <Button color="error" variant="contained" onClick={handleCancelReservation} disabled={cancelSaving}>
             {cancelSaving ? "Cancelling..." : "Cancel reservation"}
           </Button>
         </DialogActions>
       </Dialog>
 
+      <Dialog open={checkoutOpen} onClose={closeCheckoutModal} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Check out guest
+          <DialogCloseButton onClick={closeCheckoutModal} disabled={checkoutSaving} />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography sx={{ fontWeight: 800 }}>{reservation ? guestName(reservation.customers) : ""}</Typography>
+              <Typography color="text.secondary" variant="body2">
+                Ref {reservation ? shortReference(reservation.id) : ""} / Balance {formatMoney(financials?.balance)}
+              </Typography>
+            </Paper>
+            <Typography color="text.secondary">
+              Confirm that the guest has settled the stay and is ready to check out.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={handleCheckoutReservation} disabled={checkoutSaving || (financials?.balance || 0) > 0}>
+            {checkoutSaving ? "Checking out..." : "Check out"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={Boolean(editPayment)} onClose={closeEditPaymentModal} fullWidth maxWidth="xs">
-        <DialogTitle>Edit payment</DialogTitle>
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Edit payment
+          <DialogCloseButton onClick={closeEditPaymentModal} disabled={editPaymentSaving || editPaymentDeleting} />
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
@@ -605,9 +697,6 @@ export default function ReservationDetailPage() {
             {editPaymentDeleting ? "Deleting..." : "Delete"}
           </Button>
           <Stack direction="row" spacing={1}>
-            <Button onClick={closeEditPaymentModal} disabled={editPaymentSaving || editPaymentDeleting}>
-              Close
-            </Button>
             <Button variant="contained" onClick={handleSaveEditPayment} disabled={editPaymentSaving || editPaymentDeleting || !editPaymentForm.amount}>
               {editPaymentSaving ? "Saving..." : "Save changes"}
             </Button>

@@ -378,6 +378,7 @@ export function getReservationFinancials(reservation) {
     netPaid,
     balance: Math.max(total - netPaid, 0),
     downpaymentRequired: Math.ceil(total * 0.3),
+    checkInPaymentRequired: Math.ceil(total * 0.5),
   };
 }
 
@@ -649,6 +650,10 @@ export async function updateReservationStatus(id, status) {
 
   if (status === "checked_in" && !["confirmed", "checked_in"].includes(existingReservation.status)) {
     throw new Error("Only confirmed reservations can be checked in.");
+  }
+
+  if (status === "checked_in" && financials.netPaid < financials.checkInPaymentRequired) {
+    throw new Error("At least half payment is required before check-in.");
   }
 
   if (status === "checked_out" && financials.balance > 0) {
