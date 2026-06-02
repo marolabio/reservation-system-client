@@ -347,6 +347,40 @@ export async function createReservation(values) {
   return reservationId;
 }
 
+export function calculateReservationTotal(reservation) {
+  const checkin = reservation?.checkin;
+  const checkout = reservation?.checkout;
+  const nights = Math.max(
+    Math.ceil((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24)),
+    0
+  );
+
+  return (reservation?.reserved_rooms || []).reduce((sum, reservedRoom) => {
+    return sum + Number(reservedRoom.rooms?.rate || 0) * Number(reservedRoom.reserved_quantity || 0) * nights;
+  }, 0);
+}
+
+export function getReservationFinancials(reservation) {
+  const payments = reservation?.reservation_payments || [];
+  const total = calculateReservationTotal(reservation);
+  const paid = payments
+    .filter((payment) => payment.payment_type !== "refund")
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const refunded = payments
+    .filter((payment) => payment.payment_type === "refund")
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const netPaid = Math.max(paid - refunded, 0);
+
+  return {
+    total,
+    paid,
+    refunded,
+    netPaid,
+    balance: Math.max(total - netPaid, 0),
+    downpaymentRequired: Math.ceil(total * 0.3),
+  };
+}
+
 export async function getAdminReservations() {
   const { data, error } = await supabase
     .from("reservations")
@@ -363,13 +397,41 @@ export async function getAdminReservations() {
         checked_out_at,
         created_at,
         customers(first_name,last_name,email,contact_number),
-        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status))
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `
     )
     .order("created_at", { ascending: false });
 
   if (error) throw error;
   return data || [];
+}
+
+export async function getAdminReservationById(id) {
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(
+      `
+        id,
+        checkin,
+        checkout,
+        adult,
+        children,
+        status,
+        notes,
+        checked_in_at,
+        checked_out_at,
+        created_at,
+        customers(first_name,last_name,email,contact_number),
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
+      `
+    )
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 function escapeLikeSearch(value) {
@@ -441,7 +503,11 @@ function applyReservationDashboardFilters(query, filters = {}) {
     query = query.eq("status", filters.status);
   }
 
-  if (filters.dateFilter && filters.dateFilter !== "all") {
+  if (filters.dateFrom && filters.dateTo) {
+    query = query
+      .lte("checkin", filters.dateTo)
+      .gte("checkout", filters.dateFrom);
+  } else if (filters.dateFilter && filters.dateFilter !== "all") {
     const now = new Date();
     const start = new Date(now);
     const end = new Date(now);
@@ -491,6 +557,8 @@ export async function getAdminReservationsPage({
   pageSize = 10,
   status = "all",
   dateFilter = "all",
+  dateFrom = "",
+  dateTo = "",
   search = "",
 } = {}) {
   const from = page * pageSize;
@@ -512,14 +580,15 @@ export async function getAdminReservationsPage({
         checked_out_at,
         created_at,
         customers(first_name,last_name,email,contact_number),
-        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status))
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `,
       { count: "exact" }
     )
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  query = applyReservationDashboardFilters(query, { status, dateFilter, searchFilter });
+  query = applyReservationDashboardFilters(query, { status, dateFilter, dateFrom, dateTo, searchFilter });
 
   const { data, error, count } = await query;
 
@@ -527,7 +596,7 @@ export async function getAdminReservationsPage({
   return { reservations: data || [], count: count || 0 };
 }
 
-export async function getReservationDashboardStats({ dateFilter = "all", search = "" } = {}) {
+export async function getReservationDashboardStats({ dateFilter = "all", dateFrom = "", dateTo = "", search = "" } = {}) {
   const searchFilter = await getReservationSearchFilter(search);
 
   const countForStatus = async (status) => {
@@ -535,7 +604,7 @@ export async function getReservationDashboardStats({ dateFilter = "all", search 
       .from("reservations")
       .select("id", { count: "exact", head: true });
 
-    query = applyReservationDashboardFilters(query, { status, dateFilter, searchFilter });
+    query = applyReservationDashboardFilters(query, { status, dateFilter, dateFrom, dateTo, searchFilter });
 
     const { count, error } = await query;
     if (error) throw error;
@@ -555,6 +624,41 @@ export async function getReservationDashboardStats({ dateFilter = "all", search 
 }
 
 export async function updateReservationStatus(id, status) {
+  const { data: existingReservation, error: fetchError } = await supabase
+    .from("reservations")
+    .select(
+      `
+        id,
+        checkin,
+        checkout,
+        status,
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
+      `
+    )
+    .eq("id", id)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const financials = getReservationFinancials(existingReservation);
+
+  if (status === "confirmed" && financials.netPaid <= 0) {
+    throw new Error("Record a downpayment before confirming this reservation.");
+  }
+
+  if (status === "checked_in" && !["confirmed", "checked_in"].includes(existingReservation.status)) {
+    throw new Error("Only confirmed reservations can be checked in.");
+  }
+
+  if (status === "checked_out" && financials.balance > 0) {
+    throw new Error("Full payment is required before checkout.");
+  }
+
+  if (status === "checked_out" && !["checked_in", "checked_out"].includes(existingReservation.status)) {
+    throw new Error("Only checked-in reservations can be checked out.");
+  }
+
   const updates = { status };
   const now = new Date().toISOString();
 
@@ -587,6 +691,129 @@ export async function checkOutReservation(reservation) {
   }
 
   await updateReservationStatus(reservation.id, "checked_out");
+}
+
+export async function addReservationPayment(reservation, values) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  validateReservationPayment(reservation, values);
+
+  const { data, error } = await supabase
+    .from("reservation_payments")
+    .insert({
+      reservation_id: reservation.id,
+      ...getReservationPaymentPayload(values),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+function getReservationPaymentPayload(values) {
+  const amount = Number(values.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Enter a valid payment amount.");
+  }
+
+  return {
+    payment_type: values.paymentType || "downpayment",
+    amount,
+    method: values.method || "cash",
+    reference_number: values.referenceNumber?.trim() || null,
+    notes: values.notes?.trim() || null,
+    paid_at: values.paidAt || new Date().toISOString(),
+  };
+}
+
+function validateReservationPayment(reservation, values, excludedPaymentId) {
+  const amount = Number(values.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Enter a valid payment amount.");
+  }
+
+  const paymentType = values.paymentType || "downpayment";
+  const comparableReservation = {
+    ...reservation,
+    reservation_payments: (reservation.reservation_payments || []).filter(
+      (payment) => payment.id !== excludedPaymentId
+    ),
+  };
+  const financials = getReservationFinancials(comparableReservation);
+
+  if (paymentType === "refund") {
+    if (amount > financials.netPaid) {
+      throw new Error("Refund cannot be greater than the net paid amount.");
+    }
+  } else if (amount > financials.balance) {
+    throw new Error("Payment cannot be greater than the remaining balance.");
+  }
+}
+
+export async function updateReservationPayment(reservation, paymentId, values) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  const existingPayment = (reservation.reservation_payments || []).find((payment) => payment.id === paymentId);
+  if (!existingPayment) {
+    throw new Error("Payment record was not found.");
+  }
+
+  validateReservationPayment(reservation, values, paymentId);
+
+  const { data, error } = await supabase
+    .from("reservation_payments")
+    .update(getReservationPaymentPayload(values))
+    .eq("id", paymentId)
+    .eq("reservation_id", reservation.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteReservationPayment(reservation, paymentId) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  const { error } = await supabase
+    .from("reservation_payments")
+    .delete()
+    .eq("id", paymentId)
+    .eq("reservation_id", reservation.id);
+
+  if (error) throw error;
+}
+
+export async function cancelReservation(reservation, values = {}) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  const refundAmount = Number(values.refundAmount || 0);
+  const financials = getReservationFinancials(reservation);
+
+  if (refundAmount > financials.netPaid) {
+    throw new Error("Refund cannot be greater than the net paid amount.");
+  }
+
+  if (refundAmount > 0) {
+    await addReservationPayment(reservation, {
+      paymentType: "refund",
+      amount: refundAmount,
+      method: values.method || "cash",
+      referenceNumber: values.referenceNumber,
+      notes: values.notes || "Cancellation refund",
+    });
+  }
+
+  return updateReservationStatus(reservation.id, "cancelled");
 }
 
 export async function updateReservationRooms(reservation, selectedRooms) {

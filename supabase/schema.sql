@@ -1,6 +1,7 @@
 create extension if not exists pgcrypto;
 
 drop table if exists public.reserved_rooms cascade;
+drop table if exists public.reservation_payments cascade;
 drop table if exists public.room_amenities cascade;
 drop table if exists public.amenities cascade;
 drop table if exists public.reservations cascade;
@@ -66,8 +67,21 @@ create table public.reserved_rooms (
   created_at timestamptz not null default now()
 );
 
+create table public.reservation_payments (
+  id uuid primary key default gen_random_uuid(),
+  reservation_id uuid not null references public.reservations(id) on delete cascade,
+  payment_type text not null check (payment_type in ('downpayment', 'full_payment', 'refund')),
+  amount numeric(10, 2) not null check (amount > 0),
+  method text not null default 'cash' check (method in ('cash', 'bank_transfer', 'card', 'e_wallet', 'other')),
+  reference_number text,
+  notes text,
+  paid_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 create index reserved_rooms_room_id_idx on public.reserved_rooms(room_id);
 create index reserved_rooms_reservation_id_idx on public.reserved_rooms(reservation_id);
+create index reservation_payments_reservation_id_idx on public.reservation_payments(reservation_id);
 create index room_amenities_amenity_id_idx on public.room_amenities(amenity_id);
 create index rooms_status_idx on public.rooms(status);
 create index reservations_dates_status_idx on public.reservations(checkin, checkout, status);
@@ -79,6 +93,7 @@ alter table public.amenities disable row level security;
 alter table public.room_amenities disable row level security;
 alter table public.reservations disable row level security;
 alter table public.reserved_rooms disable row level security;
+alter table public.reservation_payments disable row level security;
 
 grant usage on schema public to anon, authenticated;
 
@@ -99,6 +114,8 @@ grant update, delete on public.reservations to authenticated;
 
 grant select, insert on public.reserved_rooms to anon, authenticated;
 grant update, delete on public.reserved_rooms to authenticated;
+
+grant select, insert, update, delete on public.reservation_payments to authenticated;
 
 insert into public.rooms (name, description, occupancy, quantity, rate, status, image)
 values
