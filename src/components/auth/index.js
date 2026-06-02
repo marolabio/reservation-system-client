@@ -16,51 +16,9 @@ import Grid from "@mui/material/Grid";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
-import { makeStyles } from "@mui/styles";
 import { green } from "@mui/material/colors";
 import Copyright from "./../layout/Copyright";
 import Helmet from "../layout/Helmet";
-
-const useStyles = makeStyles((theme) => ({
-  root: {
-    height: "100vh",
-  },
-  image: {
-    backgroundImage: "url(https://source.unsplash.com/random)",
-    backgroundRepeat: "no-repeat",
-    backgroundColor:
-      theme.palette.mode === "light"
-        ? theme.palette.grey[50]
-        : theme.palette.grey[900],
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-  },
-  paper: {
-    margin: theme.spacing(8, 4),
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  avatar: {
-    margin: theme.spacing(1),
-    backgroundColor: theme.palette.secondary.main,
-  },
-  form: {
-    width: "100%", // Fix IE 11 issue.
-    marginTop: theme.spacing(1),
-  },
-  submit: {
-    margin: theme.spacing(3, 0, 2),
-  },
-  buttonProgress: {
-    color: green[500],
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    marginTop: -12,
-    marginLeft: -12,
-  },
-}));
 
 const SignInSide = (props) => {
   const { isAuthenticated, loading, loadUser } = props;
@@ -70,7 +28,6 @@ const SignInSide = (props) => {
     password: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const classes = useStyles();
 
   const { email, password } = formData;
 
@@ -102,20 +59,47 @@ const SignInSide = (props) => {
   };
 
   return (
-    <Grid container component="main" className={classes.root}>
+    <Grid container component="main" sx={{ height: "100vh" }}>
       <Helmet title="Login" />
       <CssBaseline />
-      <Grid item xs={false} sm={4} md={7} className={classes.image} />
+      <Grid
+        item
+        xs={false}
+        sm={4}
+        md={7}
+        sx={(theme) => ({
+          backgroundImage: "url(https://source.unsplash.com/random)",
+          backgroundRepeat: "no-repeat",
+          backgroundColor:
+            theme.palette.mode === "light"
+              ? theme.palette.grey[50]
+              : theme.palette.grey[900],
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        })}
+      />
       <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
-        <div className={classes.paper}>
-          <Avatar className={classes.avatar}>
+        <Box
+          sx={(theme) => ({
+            margin: theme.spacing(8, 4),
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          })}
+        >
+          <Avatar
+            sx={(theme) => ({
+              margin: theme.spacing(1),
+              backgroundColor: theme.palette.secondary.main,
+            })}
+          >
             <LockOutlinedIcon />
           </Avatar>
           <Typography component="h1" variant="h5">
             Sign in
           </Typography>
           <form
-            className={classes.form}
+            style={{ width: "100%", marginTop: 8 }}
             noValidate
             onSubmit={(e) => onSubmit(e)}
           >
@@ -150,14 +134,21 @@ const SignInSide = (props) => {
               fullWidth
               variant="contained"
               color="primary"
-              className={classes.submit}
+              sx={(theme) => ({ margin: theme.spacing(3, 0, 2) })}
               disabled={submitting}
             >
               Sign In
               {submitting && (
                 <CircularProgress
                   size={24}
-                  className={classes.buttonProgress}
+                  sx={{
+                    color: green[500],
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    marginTop: "-12px",
+                    marginLeft: "-12px",
+                  }}
                 />
               )}
             </Button>
@@ -170,7 +161,7 @@ const SignInSide = (props) => {
               <Copyright />
             </Box>
           </form>
-        </div>
+        </Box>
       </Grid>
     </Grid>
   );

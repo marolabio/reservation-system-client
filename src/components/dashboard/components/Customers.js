@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { makeStyles } from "@mui/styles";
+import Box from "@mui/material/Box";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -8,22 +8,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Title from "./Title";
 
-const useStyles = makeStyles((theme) => {
-  console.log({ theme });
-  return {
-    seeMore: {
-      marginTop: theme.spacing(3),
-    },
-    link: {
-      textDecoration: "none",
-      color: theme.palette.primary.main,
-    },
-  };
-});
-
 export default function Customers({ reservations }) {
-  const classes = useStyles();
-
   const rows = reservations.map((res) => {
     const { first_name, last_name, email, contact_number } = res.customer;
     return {
@@ -57,11 +42,14 @@ export default function Customers({ reservations }) {
           ))}
         </TableBody>
       </Table>
-      <div className={classes.seeMore}>
-        <Link className={classes.link} href="/customers">
+      <Box sx={(theme) => ({ marginTop: theme.spacing(3) })}>
+        <Link
+          style={{ textDecoration: "none" }}
+          href="/customers"
+        >
           See more customers
         </Link>
-      </div>
+      </Box>
     </React.Fragment>
   );
 }

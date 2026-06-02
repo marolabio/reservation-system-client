@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import { Provider } from "react-redux";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
-import { ThemeProvider as StylesThemeProvider } from "@mui/styles";
 import Alert from "../components/layout/Alert";
 import store from "../store";
 import "../App.css";
@@ -54,11 +53,9 @@ export default function App({ Component, pageProps }) {
   return (
     <Provider store={store}>
       <ThemeProvider theme={theme}>
-        <StylesThemeProvider theme={theme}>
-          <CssBaseline />
-          <Alert />
-          <Component {...pageProps} />
-        </StylesThemeProvider>
+        <CssBaseline />
+        <Alert />
+        <Component {...pageProps} />
       </ThemeProvider>
     </Provider>
   );

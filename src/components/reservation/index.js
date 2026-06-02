@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { connect } from "react-redux";
-import { makeStyles } from "@mui/styles";
 import Stepper from "@mui/material/Stepper";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
@@ -15,23 +14,7 @@ import { reserve } from "./../../actions/reservation";
 
 const steps = ["Select room", "Enter personal details", "Review reservation"];
 
-const useStyles = makeStyles((theme) => ({
-  stepper: {
-    padding: theme.spacing(3, 0, 5),
-    background: "transparent",
-  },
-  buttons: {
-    display: "flex",
-    justifyContent: "flex-end",
-  },
-  button: {
-    marginTop: theme.spacing(3),
-    marginLeft: theme.spacing(1),
-  },
-}));
-
 const Reservation = ({ reserve }) => {
-  const classes = useStyles();
   const [state, setState] = useState({
     activeStep: 0,
     checkin: moment().add(1, "days").format("YYYY-MM-DD"),
@@ -218,7 +201,13 @@ const Reservation = ({ reserve }) => {
 
   return (
     <Content title="Reservations" loading={false}>
-      <Stepper activeStep={activeStep} className={classes.stepper}>
+      <Stepper
+        activeStep={activeStep}
+        sx={(theme) => ({
+          padding: theme.spacing(3, 0, 5),
+          background: "transparent",
+        })}
+      >
         {steps.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
@@ -239,10 +228,16 @@ const Reservation = ({ reserve }) => {
         ) : (
           <React.Fragment>
             {getStepContent(activeStep)}
-            <div className={classes.buttons}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
               {activeStep !== 0 && (
                 <React.Fragment>
-                  <Button onClick={() => prevStep()} className={classes.button}>
+                  <Button
+                    onClick={() => prevStep()}
+                    sx={(theme) => ({
+                      marginTop: theme.spacing(3),
+                      marginLeft: theme.spacing(1),
+                    })}
+                  >
                     Back
                   </Button>
                   <Button
@@ -253,7 +248,10 @@ const Reservation = ({ reserve }) => {
                         ? handlePlaceReservation()
                         : nextStep();
                     }}
-                    className={classes.button}
+                    sx={(theme) => ({
+                      marginTop: theme.spacing(3),
+                      marginLeft: theme.spacing(1),
+                    })}
                   >
                     {activeStep === steps.length - 1
                       ? "Place reservation"
@@ -267,7 +265,10 @@ const Reservation = ({ reserve }) => {
                   variant="contained"
                   color="primary"
                   onClick={() => nextStep()}
-                  className={classes.button}
+                  sx={(theme) => ({
+                    marginTop: theme.spacing(3),
+                    marginLeft: theme.spacing(1),
+                  })}
                 >
                   Next
                 </Button>

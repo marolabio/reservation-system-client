@@ -1,56 +1,34 @@
 import React from "react";
-import { makeStyles } from "@mui/styles";
 import { Container, Box, LinearProgress } from "@mui/material";
 import SideBar from "./SideBar";
 import Helmet from "./Helmet";
 import Copyright from "./Copyright";
 
-const useStyles = makeStyles((theme) => ({
-  root: {
-    display: "flex",
-  },
-  appBarSpacer: theme.mixins.toolbar,
-  content: {
-    flexGrow: 1,
-    height: "100vh",
-    overflow: "auto",
-  },
-  container: {
-    paddingTop: theme.spacing(4),
-    paddingBottom: theme.spacing(4),
-  },
-  paper: {
-    padding: theme.spacing(2),
-    display: "flex",
-    overflow: "auto",
-    flexDirection: "column",
-  },
-  fixedHeight: {
-    height: 240,
-  },
-}));
-
 function Content({ children, title, loading }) {
-  const classes = useStyles();
-
   return (
-    <div className={classes.root}>
+    <Box sx={{ display: "flex" }}>
       <Helmet title={title} />
       <SideBar title={title} />
-      <main className={classes.content}>
-        <div className={classes.appBarSpacer} />
+      <Box component="main" sx={{ flexGrow: 1, height: "100vh", overflow: "auto" }}>
+        <Box sx={(theme) => theme.mixins.toolbar} />
         {loading ? (
           <LinearProgress />
         ) : (
-          <Container maxWidth="xl" className={classes.container}>
+          <Container
+            maxWidth="xl"
+            sx={(theme) => ({
+              paddingTop: theme.spacing(4),
+              paddingBottom: theme.spacing(4),
+            })}
+          >
             {children}
             <Box pt={4}>
               <Copyright />
             </Box>
           </Container>
         )}
-      </main>
-    </div>
+      </Box>
+    </Box>
   );
 }
 

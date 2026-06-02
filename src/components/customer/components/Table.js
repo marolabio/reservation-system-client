@@ -1,6 +1,5 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { makeStyles } from "@mui/styles";
 import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
@@ -15,22 +14,13 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import moment from "moment";
 
-const useRowStyles = makeStyles({
-  root: {
-    "& > *": {
-      borderBottom: "unset",
-    },
-  },
-});
-
 function Row(props) {
   const { row } = props;
   const [open, setOpen] = React.useState(false);
-  const classes = useRowStyles();
 
   return (
     <React.Fragment>
-      <TableRow className={classes.root}>
+      <TableRow sx={{ "& > *": { borderBottom: "unset" } }}>
         <TableCell>
           <IconButton
             aria-label="expand row"

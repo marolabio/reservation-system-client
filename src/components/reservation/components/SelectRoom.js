@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import Grid from "@mui/material/Grid";
 import Card from "@mui/material/Card";
+import Box from "@mui/material/Box";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
-import { makeStyles } from "@mui/styles";
 import Skeleton from "@mui/material/Skeleton";
 import TextField from "@mui/material/TextField";
 import moment from "moment";
@@ -21,38 +21,6 @@ const getRoomImage = (image) => {
   return image.url || "";
 };
 
-const useStyles = makeStyles((theme) => ({
-  cardGrid: {
-    paddingTop: theme.spacing(8),
-    paddingBottom: theme.spacing(8),
-  },
-  card: {
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
-  },
-  cardMedia: {
-    paddingTop: "56.25%", // 16:9
-  },
-  cardContent: {
-    flexGrow: 1,
-  },
-  root: {
-    display: "flex",
-    justifyContent: "space-between",
-  },
-  details: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  content: {
-    flex: "1 0 auto",
-  },
-  cover: {
-    width: 300,
-  },
-}));
-
 const SelectRoom = ({
   handleSelectRoom,
   handleChange,
@@ -60,7 +28,6 @@ const SelectRoom = ({
   handleChangeRoom,
   state,
 }) => {
-  const classes = useStyles();
   const [data, setData] = useState({ rooms: [], reservedRooms: [] });
   const [loading, setLoading] = useState(true);
   const { checkin, checkout, roomQuantity, adult, children } = state;
@@ -249,8 +216,8 @@ const SelectRoom = ({
       {Object.keys(state.room).length !== 0 ? (
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
-            <Card className={classes.root}>
-              <CardContent className={classes.content}>
+            <Card sx={{ display: "flex", justifyContent: "space-between" }}>
+              <CardContent sx={{ flex: "1 0 auto" }}>
                 <Typography variant="h5" gutterBottom>
                   Reservation Details
                 </Typography>
@@ -273,9 +240,9 @@ const SelectRoom = ({
             </Card>
           </Grid>
           <Grid item xs={12} md={8}>
-            <Card className={classes.root}>
-              <div className={classes.details}>
-                <CardContent className={classes.content}>
+            <Card sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Box sx={{ display: "flex", flexDirection: "column" }}>
+                <CardContent sx={{ flex: "1 0 auto" }}>
                   <Typography component="h5" variant="h5">
                     {state.room.name}
                   </Typography>
@@ -286,7 +253,7 @@ const SelectRoom = ({
                     {state.room.description}
                   </Typography>
                 </CardContent>
-              </div>
+              </Box>
               <CardActions>
                 <Button
                   size="small"
@@ -299,7 +266,7 @@ const SelectRoom = ({
                 </Button>
               </CardActions>
               <CardMedia
-                className={classes.cover}
+                sx={{ width: 300 }}
                 image={getRoomImage(state.room.image)}
                 title={state.room.name}
               />
@@ -317,13 +284,19 @@ const SelectRoom = ({
             (room, index) =>
               room ? (
                 <Grid item key={room.id} xs={12} sm={6} md={4}>
-                  <Card className={classes.card}>
+                  <Card
+                    sx={{
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
                     <CardMedia
-                      className={classes.cardMedia}
+                      sx={{ paddingTop: "56.25%" }}
                       image={getRoomImage(room.image)}
                       title={room.name}
                     />
-                    <CardContent className={classes.cardContent}>
+                    <CardContent sx={{ flexGrow: 1 }}>
                       <Typography gutterBottom variant="h5" component="h2">
                         {room.name}
                       </Typography>

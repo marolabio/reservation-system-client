@@ -1,5 +1,4 @@
 import React from "react";
-import { makeStyles } from "@mui/styles";
 import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -7,23 +6,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Grid from "@mui/material/Grid";
 import moment from "moment";
 
-const useStyles = makeStyles((theme) => ({
-  listItem: {
-    padding: theme.spacing(1, 0),
-  },
-  total: {
-    fontWeight: 700,
-  },
-  title: {
-    marginTop: theme.spacing(2),
-  },
-  inline: {
-    display: "inline",
-  },
-}));
-
 export default function Review({ state }) {
-  const classes = useStyles();
   const {
     checkin,
     checkout,
@@ -36,7 +19,7 @@ export default function Review({ state }) {
   return (
     <React.Fragment>
       <List disablePadding>
-        <ListItem className={classes.listItem} key={room.name}>
+        <ListItem sx={(theme) => ({ padding: theme.spacing(1, 0) })} key={room.name}>
           <ListItemText
             primary={`${room.name} X ${roomQuantity}`}
             secondary={
@@ -44,7 +27,7 @@ export default function Review({ state }) {
                 <Typography
                   component="span"
                   variant="body2"
-                  className={classes.inline}
+                  sx={{ display: "inline" }}
                   color="textPrimary"
                 >
                   {`${moment(checkin).format("MMMM Do")} - ${moment(
@@ -55,7 +38,7 @@ export default function Review({ state }) {
                 <Typography
                   component="span"
                   variant="body3"
-                  className={classes.inline}
+                  sx={{ display: "inline" }}
                   color="textPrimary"
                 >
                   {`${adult} adult`}
@@ -65,16 +48,20 @@ export default function Review({ state }) {
           />
           <Typography variant="body2">{room.rate}</Typography>
         </ListItem>
-        <ListItem className={classes.listItem}>
+        <ListItem sx={(theme) => ({ padding: theme.spacing(1, 0) })}>
           <ListItemText primary="Total" />
-          <Typography variant="subtitle1" className={classes.total}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             {room.rate * roomQuantity}
           </Typography>
         </ListItem>
       </List>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6}>
-          <Typography variant="h6" gutterBottom className={classes.title}>
+          <Typography
+            variant="h6"
+            gutterBottom
+            sx={(theme) => ({ marginTop: theme.spacing(2) })}
+          >
             Personal details
           </Typography>
           <Typography gutterBottom>{`${firstName} ${lastName}`}</Typography>

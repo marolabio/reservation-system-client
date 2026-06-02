@@ -13,42 +13,12 @@ import Box from "@mui/material/Box";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { makeStyles } from "@mui/styles";
 import Container from "@mui/material/Container";
 import { green } from "@mui/material/colors";
 import Copyright from "../layout/Copyright";
 import Helmet from "../layout/Helmet";
 
-const useStyles = makeStyles((theme) => ({
-  paper: {
-    marginTop: theme.spacing(10),
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  avatar: {
-    margin: theme.spacing(1),
-    backgroundColor: theme.palette.secondary.main,
-  },
-  form: {
-    width: "100%", // Fix IE 11 issue.
-    marginTop: theme.spacing(1),
-  },
-  submit: {
-    margin: theme.spacing(3, 0, 2),
-  },
-  buttonProgress: {
-    color: green[500],
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    marginTop: -12,
-    marginLeft: -12,
-  },
-}));
-
 const ForgotPassword = (props) => {
-  const classes = useStyles();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -66,8 +36,20 @@ const ForgotPassword = (props) => {
     <Container component="main" maxWidth="xs">
       <Helmet title="Forgot Password" />
       <CssBaseline />
-      <div className={classes.paper}>
-        <Avatar className={classes.avatar}>
+      <Box
+        sx={(theme) => ({
+          marginTop: theme.spacing(10),
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        })}
+      >
+        <Avatar
+          sx={(theme) => ({
+            margin: theme.spacing(1),
+            backgroundColor: theme.palette.secondary.main,
+          })}
+        >
           <LockOutlinedIcon />
         </Avatar>
         <Typography component="h1" variant="h5">
@@ -82,7 +64,7 @@ const ForgotPassword = (props) => {
           Enter your email address and we&apos;ll send you a link to reset your
           password
         </Typography>
-        <form className={classes.form} noValidate onSubmit={(e) => onSubmit(e)}>
+        <form style={{ width: "100%", marginTop: 8 }} noValidate onSubmit={(e) => onSubmit(e)}>
           <TextField
             variant="outlined"
             margin="normal"
@@ -100,17 +82,27 @@ const ForgotPassword = (props) => {
             fullWidth
             variant="contained"
             color="primary"
-            className={classes.submit}
+            sx={(theme) => ({ margin: theme.spacing(3, 0, 2) })}
             disabled={loading}
           >
             Submit
             {loading && (
-              <CircularProgress size={24} className={classes.buttonProgress} />
+              <CircularProgress
+                size={24}
+                sx={{
+                  color: green[500],
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  marginTop: "-12px",
+                  marginLeft: "-12px",
+                }}
+              />
             )}
           </Button>
           <Link href="/">Return to sign in page</Link>
         </form>
-      </div>
+      </Box>
       <Box mt={8}>
         <Copyright />
       </Box>
