@@ -298,7 +298,7 @@ export default function ReservationQueuePage({
               }}
             >
               <TableHead>
-                <TableRow sx={{ bgcolor: "grey.50" }}>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Guest</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Details</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rooms</TableCell>

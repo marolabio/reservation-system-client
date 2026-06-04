@@ -261,7 +261,7 @@ export default function CalendarPage() {
                 sx={{
                   px: 1,
                   py: 0.75,
-                  bgcolor: "grey.100",
+                  bgcolor: "action.selected",
                   borderRight: "1px solid",
                   borderColor: "divider",
                 }}
@@ -315,7 +315,7 @@ export default function CalendarPage() {
                     borderColor: "divider",
                     color: "text.primary",
                     textAlign: "left",
-                    bgcolor: isCurrentMonth ? "background.paper" : "grey.50",
+                    bgcolor: isCurrentMonth ? "background.paper" : "action.hover",
                     opacity: isCurrentMonth ? 1 : 0.55,
                     "&:hover": {
                       bgcolor:

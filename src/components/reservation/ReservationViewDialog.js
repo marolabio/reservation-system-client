@@ -671,7 +671,7 @@ export default function ReservationViewDialog({
 
                     <Stack
                       spacing={1.25}
-                      sx={{ bgcolor: "grey.50", borderRadius: 1, p: 1.5 }}
+                      sx={{ bgcolor: "action.hover", borderRadius: 1, p: 1.5 }}
                     >
                       <FinancialKpi
                         label="Total"
@@ -710,7 +710,7 @@ export default function ReservationViewDialog({
                       >
                         <Box
                           sx={{
-                            bgcolor: "grey.50",
+                            bgcolor: "action.hover",
                             display: "grid",
                             gap: 1,
                             gridTemplateColumns:
@@ -845,7 +845,7 @@ export default function ReservationViewDialog({
                   >
                     <Box
                       sx={{
-                        bgcolor: "grey.50",
+                        bgcolor: "action.hover",
                         display: "grid",
                         gap: 1,
                         gridTemplateColumns: paymentGridColumns,

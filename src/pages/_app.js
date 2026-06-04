@@ -1,62 +1,117 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import NextApp from "next/app";
 import { Provider } from "react-redux";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import Alert from "../components/layout/Alert";
 import store from "../store";
+import { ColorModeContext } from "../utils/colorMode";
 import "../App.css";
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#0f766e",
-    },
-    secondary: {
-      main: "#d97706",
-    },
-    background: {
-      default: "#f6f8f7",
-    },
-  },
-  shape: {
-    borderRadius: 8,
-  },
-  typography: {
-    fontFamily:
-      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    button: {
-      textTransform: "none",
-      fontWeight: 700,
-    },
-  },
-  components: {
-    MuiTextField: {
-      defaultProps: {
-        size: "small",
-      },
-    },
-    MuiButton: {
-      defaultProps: {
-        disableElevation: true,
-      },
-    },
-  },
-});
+const colorModeStorageKey = "admin-color-mode";
 
-export default function App({ Component, pageProps }) {
+function isColorMode(value) {
+  return value === "dark" || value === "light";
+}
+
+function readColorModeCookie(cookie = "") {
+  const match = cookie.match(/(?:^|;\s*)admin-color-mode=(dark|light)(?:;|$)/);
+  return match ? match[1] : "light";
+}
+
+function writeColorModePreference(nextMode) {
+  window.localStorage.setItem(colorModeStorageKey, nextMode);
+  document.cookie = `${colorModeStorageKey}=${nextMode}; path=/; max-age=31536000; sameSite=lax`;
+}
+
+function buildTheme(mode) {
+  return createTheme({
+    palette: {
+      mode,
+      primary: {
+        main: "#0f766e",
+      },
+      secondary: {
+        main: "#d97706",
+      },
+      background: {
+        default: mode === "dark" ? "#0f172a" : "#f6f8f7",
+        paper: mode === "dark" ? "#111827" : "#ffffff",
+      },
+    },
+    shape: {
+      borderRadius: 8,
+    },
+    typography: {
+      fontFamily:
+        'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      button: {
+        textTransform: "none",
+        fontWeight: 700,
+      },
+    },
+    components: {
+      MuiTextField: {
+        defaultProps: {
+          size: "small",
+        },
+      },
+      MuiButton: {
+        defaultProps: {
+          disableElevation: true,
+        },
+      },
+    },
+  });
+}
+
+export default function App({ Component, pageProps, initialColorMode = "light" }) {
+  const [mode, setMode] = useState(initialColorMode);
+
   useEffect(() => {
     const jssStyles = document.querySelector("#jss-server-side");
     if (jssStyles) {
       jssStyles.parentElement.removeChild(jssStyles);
     }
+
+    const savedMode = window.localStorage.getItem(colorModeStorageKey);
+    if (isColorMode(savedMode)) {
+      writeColorModePreference(savedMode);
+      setMode((currentMode) => (savedMode === currentMode ? currentMode : savedMode));
+    }
   }, []);
+
+  const colorMode = useMemo(() => ({
+    mode,
+    toggleColorMode: () => {
+      setMode((currentMode) => {
+        const nextMode = currentMode === "light" ? "dark" : "light";
+        writeColorModePreference(nextMode);
+        return nextMode;
+      });
+    },
+  }), [mode]);
+
+  const theme = useMemo(() => buildTheme(mode), [mode]);
 
   return (
     <Provider store={store}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Alert />
-        <Component {...pageProps} />
-      </ThemeProvider>
+      <ColorModeContext.Provider value={colorMode}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <Alert />
+          <Component {...pageProps} />
+        </ThemeProvider>
+      </ColorModeContext.Provider>
     </Provider>
   );
 }
+
+App.getInitialProps = async (appContext) => {
+  const appProps = await NextApp.getInitialProps(appContext);
+  const cookie = appContext.ctx.req?.headers?.cookie || "";
+
+  return {
+    ...appProps,
+    initialColorMode: readColorModeCookie(cookie),
+  };
+};

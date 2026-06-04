@@ -431,7 +431,7 @@ export default function RoomsPage() {
             </Box>
             <Table sx={{ minWidth: 900 }}>
               <TableHead>
-                <TableRow sx={{ bgcolor: "grey.50" }}>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Room</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Amenities</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Capacity</TableCell>

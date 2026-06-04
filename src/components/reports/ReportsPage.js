@@ -263,7 +263,7 @@ export default function ReportsPage() {
             </Box>
             <Table sx={{ minWidth: 1050 }}>
               <TableHead>
-                <TableRow sx={{ bgcolor: "grey.50" }}>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Guest</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rooms</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Stay</TableCell>

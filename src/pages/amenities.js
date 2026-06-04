@@ -180,7 +180,7 @@ export default function AmenitiesPage() {
           <TableContainer component={Paper} elevation={1}>
             <Table sx={{ minWidth: 560 }}>
               <TableHead>
-                <TableRow sx={{ bgcolor: "grey.50" }}>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Amenity</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Created</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Actions</TableCell>
