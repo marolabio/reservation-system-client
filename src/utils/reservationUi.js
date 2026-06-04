@@ -9,7 +9,7 @@ export const statusColors = {
 };
 
 export const paymentTypeLabels = {
-  downpayment: "Downpayment",
+  downpayment: "Partial payment",
   partial_payment: "Partial payment",
   full_payment: "Full payment",
   refund: "Refund",
@@ -24,7 +24,7 @@ export const paymentMethods = [
 ];
 
 export function formatMoney(value) {
-  return `PHP ${Number(value || 0).toLocaleString()}`;
+  return `₱${Number(value || 0).toLocaleString()}`;
 }
 
 export function shortReference(id) {
@@ -48,7 +48,7 @@ export function nextReservationAction(reservation, financials) {
   if (!reservation || ["cancelled", "checked_out"].includes(reservation.status)) return null;
 
   if (reservation.status === "pending") {
-    if (financials.netPaid <= 0) return { label: "Record payment", href: "payment?type=downpayment" };
+    if (financials.netPaid <= 0) return { label: "Record payment", href: "payment?type=partial_payment" };
     return { label: "Confirm reservation", href: "confirm" };
   }
 

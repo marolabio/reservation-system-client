@@ -45,7 +45,7 @@ import {
 } from "../../../utils/reservationUi";
 
 const emptyPaymentForm = {
-  paymentType: "downpayment",
+  paymentType: "partial_payment",
   amount: "",
   method: "cash",
   referenceNumber: "",
@@ -131,10 +131,16 @@ export default function ReservationDetailPage() {
   };
 
   const financials = reservation ? getReservationFinancials(reservation) : null;
+  const canRecordRefund = (financials?.netPaid || 0) > 0;
   const nextAction = reservation && financials ? nextReservationAction(reservation, financials) : null;
   const basePath = reservation ? `/reservations/${reservation.id}` : "";
   const actionsAvailable = reservation && !["checked_out", "cancelled"].includes(reservation.status);
   const canCancelReservation = reservation && !["checked_in", "checked_out", "cancelled"].includes(reservation.status);
+  const paymentFullAmount = Math.max(financials?.balance || 0, 0);
+  const editPaymentFullAmount = Math.max(
+    (financials?.balance || 0) + (editPayment && editPayment.payment_type !== "refund" ? Number(editPayment.amount || 0) : 0),
+    0
+  );
 
   const reloadReservation = async () => {
     const nextReservation = await getAdminReservationById(id);
@@ -142,7 +148,7 @@ export default function ReservationDetailPage() {
     return nextReservation;
   };
 
-  const openPaymentModal = (paymentType = "downpayment", target = "") => {
+  const openPaymentModal = (paymentType = "partial_payment", target = "") => {
     const amountNeededForCheckIn = Math.max(financials.checkInPaymentRequired - financials.netPaid, 0);
     const nextAmount =
       paymentType === "refund"
@@ -168,7 +174,14 @@ export default function ReservationDetailPage() {
   };
 
   const handlePaymentFormChange = (event) => {
-    setPaymentForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setPaymentForm((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === "paymentType" && value === "full_payment"
+        ? { amount: paymentFullAmount > 0 ? String(paymentFullAmount) : "" }
+        : {}),
+    }));
   };
 
   const handleSavePayment = async () => {
@@ -189,7 +202,10 @@ export default function ReservationDetailPage() {
   };
 
   const openCancelModal = () => {
-    setCancelForm(emptyCancelForm);
+    setCancelForm({
+      ...emptyCancelForm,
+      refundAmount: canRecordRefund ? String(financials.netPaid) : "",
+    });
     setCancelOpen(true);
   };
 
@@ -248,7 +264,7 @@ export default function ReservationDetailPage() {
   const openEditPaymentModal = (payment) => {
     setEditPayment(payment);
     setEditPaymentForm({
-      paymentType: payment.payment_type,
+      paymentType: payment.payment_type === "downpayment" ? "partial_payment" : payment.payment_type,
       amount: String(payment.amount),
       method: payment.method || "cash",
       referenceNumber: payment.reference_number || "",
@@ -263,7 +279,14 @@ export default function ReservationDetailPage() {
   };
 
   const handleEditPaymentFormChange = (event) => {
-    setEditPaymentForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setEditPaymentForm((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === "paymentType" && value === "full_payment"
+        ? { amount: editPaymentFullAmount > 0 ? String(editPaymentFullAmount) : "" }
+        : {}),
+    }));
   };
 
   const handleSaveEditPayment = async () => {
@@ -309,7 +332,7 @@ export default function ReservationDetailPage() {
         ? "full_payment"
         : nextAction.href.includes("partial_payment")
           ? "partial_payment"
-          : "downpayment";
+          : "partial_payment";
       const target = nextAction.href.includes("target=check_in") ? "check_in" : "";
       openPaymentModal(paymentType, target);
       return;
@@ -498,7 +521,7 @@ export default function ReservationDetailPage() {
                         Actions
                       </Typography>
                       <Stack spacing={1}>
-                        <Button onClick={() => openPaymentModal("downpayment")} variant="outlined" fullWidth disabled={financials.balance <= 0}>
+                        <Button onClick={() => openPaymentModal("partial_payment")} variant="outlined" fullWidth disabled={financials.balance <= 0}>
                           Record payment
                         </Button>
                         {canCancelReservation && (
@@ -537,7 +560,6 @@ export default function ReservationDetailPage() {
               onChange={handlePaymentFormChange}
               fullWidth
             >
-              <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
               <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
               <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
             </TextField>
@@ -547,7 +569,12 @@ export default function ReservationDetailPage() {
               type="number"
               value={paymentForm.amount}
               onChange={handlePaymentFormChange}
-              inputProps={{ min: paymentForm.paymentType === "full_payment" ? financials?.balance || 1 : 1, step: "0.01" }}
+              inputProps={{
+                min: paymentForm.paymentType === "full_payment" ? paymentFullAmount || 1 : 1,
+                readOnly: paymentForm.paymentType === "full_payment",
+                step: "0.01",
+              }}
+              helperText={paymentForm.paymentType === "full_payment" ? "Full payment uses the remaining balance." : ""}
               fullWidth
               required
             />
@@ -588,28 +615,47 @@ export default function ReservationDetailPage() {
                 Net paid {formatMoney(financials?.netPaid)}
               </Typography>
             </Paper>
-            <TextField
-              label="Refund amount"
-              name="refundAmount"
-              type="number"
-              value={cancelForm.refundAmount}
-              onChange={handleCancelFormChange}
-              inputProps={{ min: 0, max: financials?.netPaid || 0, step: "0.01" }}
-              helperText="Leave blank or 0 if there is no refund."
-              fullWidth
-            />
-            <TextField select label="Refund method" name="method" value={cancelForm.method} onChange={handleCancelFormChange} fullWidth>
-              {paymentMethods.map((method) => (
-                <MenuItem key={method.value} value={method.value}>
-                  {method.label}
-                </MenuItem>
-              ))}
-            </TextField>
+            {canRecordRefund ? (
+              <>
+                <TextField
+                  label="Refund amount"
+                  name="refundAmount"
+                  type="number"
+                  value={cancelForm.refundAmount}
+                  onChange={handleCancelFormChange}
+                  inputProps={{ min: 0.01, max: financials?.netPaid || 0, step: "0.01" }}
+                  helperText="Required when there is a refundable amount."
+                  fullWidth
+                />
+                <TextField select label="Refund method" name="method" value={cancelForm.method} onChange={handleCancelFormChange} fullWidth>
+                  {paymentMethods.map((method) => (
+                    <MenuItem key={method.value} value={method.value}>
+                      {method.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </>
+            ) : (
+              <Typography color="text.secondary" variant="body2">
+                No refundable amount.
+              </Typography>
+            )}
             <TextField label="Cancellation notes" name="notes" value={cancelForm.notes} onChange={handleCancelFormChange} fullWidth multiline minRows={3} />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button color="error" variant="contained" onClick={handleCancelReservation} disabled={cancelSaving}>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleCancelReservation}
+            disabled={
+              cancelSaving ||
+              (
+                canRecordRefund &&
+                (!Number.isFinite(Number(cancelForm.refundAmount)) || Number(cancelForm.refundAmount) <= 0)
+              )
+            }
+          >
             {cancelSaving ? "Cancelling..." : "Cancel reservation"}
           </Button>
         </DialogActions>
@@ -661,7 +707,6 @@ export default function ReservationDetailPage() {
               onChange={handleEditPaymentFormChange}
               fullWidth
             >
-              <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
               <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
               <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
               {editPaymentForm.paymentType === "refund" && (
@@ -674,7 +719,12 @@ export default function ReservationDetailPage() {
               type="number"
               value={editPaymentForm.amount}
               onChange={handleEditPaymentFormChange}
-              inputProps={{ min: editPaymentForm.paymentType === "full_payment" ? financials?.balance || 1 : 1, step: "0.01" }}
+              inputProps={{
+                min: editPaymentForm.paymentType === "full_payment" ? editPaymentFullAmount || 1 : 1,
+                readOnly: editPaymentForm.paymentType === "full_payment",
+                step: "0.01",
+              }}
+              helperText={editPaymentForm.paymentType === "full_payment" ? "Full payment uses the remaining balance." : ""}
               fullWidth
               required
             />

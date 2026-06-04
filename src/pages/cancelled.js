@@ -6,6 +6,9 @@ export default function CancelledPage() {
       title="Cancelled reservations"
       status="cancelled"
       emptyMessage="No cancelled reservations."
+      hideTitleCount
+      hideFinancials
+      showStayNights
     />
   );
 }

@@ -17,7 +17,7 @@ const actionConfig = {
     title: "Confirm reservation",
     button: "Confirm reservation",
     status: "confirmed",
-    description: "Use this after the guest has made a downpayment.",
+    description: "Use this after the guest has made a partial payment.",
   },
   "check-in": {
     title: "Check in guest",
@@ -64,7 +64,13 @@ export default function ReservationActionPage({ action }) {
 
       setLoading(true);
       try {
-        setReservation(await getAdminReservationById(id));
+        const nextReservation = await getAdminReservationById(id);
+        const financials = getReservationFinancials(nextReservation);
+        setReservation(nextReservation);
+
+        if (action === "cancel" && financials.netPaid > 0) {
+          setForm((current) => ({ ...current, refundAmount: String(financials.netPaid) }));
+        }
       } catch (err) {
         setError(err.message || "Unable to load reservation.");
       } finally {
@@ -73,7 +79,7 @@ export default function ReservationActionPage({ action }) {
     }
 
     loadReservation();
-  }, [id, router]);
+  }, [action, id, router]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -81,6 +87,7 @@ export default function ReservationActionPage({ action }) {
   };
 
   const financials = reservation ? getReservationFinancials(reservation) : null;
+  const canRecordRefund = (financials?.netPaid || 0) > 0;
 
   const handleChange = (event) => {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -133,25 +140,46 @@ export default function ReservationActionPage({ action }) {
                 </Paper>
                 {action === "cancel" && (
                   <>
-                    <TextField
-                      label="Refund amount"
-                      name="refundAmount"
-                      type="number"
-                      value={form.refundAmount}
-                      onChange={handleChange}
-                      inputProps={{ min: 0, max: financials.netPaid, step: "0.01" }}
-                      helperText="Leave blank or 0 if there is no refund."
-                      fullWidth
-                    />
-                    <TextField select label="Refund method" name="method" value={form.method} onChange={handleChange} fullWidth>
-                      {paymentMethods.map((method) => (
-                        <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
-                      ))}
-                    </TextField>
+                    {canRecordRefund ? (
+                      <>
+                        <TextField
+                          label="Refund amount"
+                          name="refundAmount"
+                          type="number"
+                          value={form.refundAmount}
+                          onChange={handleChange}
+                          inputProps={{ min: 0.01, max: financials.netPaid, step: "0.01" }}
+                          helperText="Required when there is a refundable amount."
+                          fullWidth
+                        />
+                        <TextField select label="Refund method" name="method" value={form.method} onChange={handleChange} fullWidth>
+                          {paymentMethods.map((method) => (
+                            <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
+                          ))}
+                        </TextField>
+                      </>
+                    ) : (
+                      <Typography color="text.secondary" variant="body2">
+                        No refundable amount.
+                      </Typography>
+                    )}
                     <TextField label="Cancellation notes" name="notes" value={form.notes} onChange={handleChange} fullWidth multiline minRows={3} />
                   </>
                 )}
-                <Button type="submit" variant="contained" color={action === "cancel" ? "error" : "primary"} size="large" disabled={saving}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color={action === "cancel" ? "error" : "primary"}
+                  size="large"
+                  disabled={
+                    saving ||
+                    (
+                      action === "cancel" &&
+                      canRecordRefund &&
+                      (!Number.isFinite(Number(form.refundAmount)) || Number(form.refundAmount) <= 0)
+                    )
+                  }
+                >
                   {saving ? "Saving..." : config.button}
                 </Button>
               </Stack>

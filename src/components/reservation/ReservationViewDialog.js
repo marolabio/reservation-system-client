@@ -17,12 +17,16 @@ import {
   Typography,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import PrintIcon from "@mui/icons-material/Print";
 import {
   addReservationPayment,
   cancelReservation,
+  deleteReservationPayment,
   getAdminReservationById,
   getReservationFinancials,
+  updateReservationPayment,
   updateReservationStatus,
 } from "../../services/resortService";
 import {
@@ -38,7 +42,7 @@ import {
 } from "../../utils/reservationUi";
 
 const emptyPaymentForm = {
-  paymentType: "downpayment",
+  paymentType: "partial_payment",
   amount: "",
   method: "cash",
   referenceNumber: "",
@@ -71,11 +75,21 @@ function DialogCloseButton({ onClick, disabled = false }) {
   );
 }
 
-function SummaryRow({ label, value, color }) {
+function FinancialKpi({ label, value, color }) {
   return (
-    <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-      <Typography color="text.secondary" variant="body2">{label}</Typography>
-      <Typography color={color} sx={{ fontWeight: 800, textAlign: "right", whiteSpace: "nowrap" }}>
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <Typography color="text.secondary" variant="body2">
+        {label}
+      </Typography>
+      <Typography
+        color={color}
+        sx={{ fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}
+      >
         {value}
       </Typography>
     </Stack>
@@ -83,22 +97,38 @@ function SummaryRow({ label, value, color }) {
 }
 
 function escapePrintValue(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#39;",
-  })[char]);
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char],
+  );
 }
 
-export default function ReservationViewDialog({ open, reservation, onClose, onReservationUpdated }) {
+function formatStatusLabel(status) {
+  return String(status || "").replace("_", " ");
+}
+
+export default function ReservationViewDialog({
+  open,
+  reservation,
+  onClose,
+  onReservationUpdated,
+}) {
   const [currentReservation, setCurrentReservation] = useState(reservation);
   const [error, setError] = useState("");
   const [actionSaving, setActionSaving] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentForm, setPaymentForm] = useState(emptyPaymentForm);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [deletePayment, setDeletePayment] = useState(null);
+  const [deletePaymentSaving, setDeletePaymentSaving] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelForm, setCancelForm] = useState(emptyCancelForm);
@@ -111,39 +141,106 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
   }, [reservation]);
 
   const customer = currentReservation?.customers || {};
-  const financials = currentReservation ? getReservationFinancials(currentReservation) : null;
+  const financials = currentReservation
+    ? getReservationFinancials(currentReservation)
+    : null;
+  const canRecordRefund = (financials?.netPaid || 0) > 0;
   const rooms = currentReservation?.reserved_rooms || [];
   const payments = currentReservation?.reservation_payments || [];
-  const nextAction = currentReservation && financials ? nextReservationAction(currentReservation, financials) : null;
-  const actionsAvailable = currentReservation && !["checked_out", "cancelled"].includes(currentReservation.status);
-  const canCancelReservation = currentReservation && !["checked_in", "checked_out", "cancelled"].includes(currentReservation.status);
-  const canPrintConfirmation = currentReservation?.status === "confirmed";
+  const stayNights = currentReservation
+    ? Math.max(
+        Math.ceil(
+          (new Date(currentReservation.checkout) -
+            new Date(currentReservation.checkin)) /
+            (1000 * 60 * 60 * 24),
+        ),
+        0,
+      )
+    : 0;
+  const nextAction =
+    currentReservation && financials
+      ? nextReservationAction(currentReservation, financials)
+      : null;
+  const actionsAvailable =
+    currentReservation &&
+    !["checked_out", "cancelled"].includes(currentReservation.status);
+  const canModifyPayments = !["checked_out", "cancelled"].includes(
+    currentReservation?.status,
+  );
+  const paymentGridColumns = canModifyPayments
+    ? "140px minmax(180px, 1fr) 120px 150px 112px"
+    : "140px minmax(180px, 1fr) 120px 150px";
+  const paymentTableMinWidth = canModifyPayments ? 700 : 588;
+  const fullPaymentAmount = Math.max(
+    (financials?.balance || 0) +
+      (editingPayment && editingPayment.payment_type !== "refund"
+        ? Number(editingPayment.amount || 0)
+        : 0),
+    0,
+  );
+  const canCancelReservation =
+    currentReservation &&
+    !["checked_in", "checked_out", "cancelled"].includes(
+      currentReservation.status,
+    );
+  const canPrintReservation = [
+    "confirmed",
+    "checked_out",
+    "cancelled",
+  ].includes(currentReservation?.status);
+  const printTitle =
+    currentReservation?.status === "checked_out"
+      ? "Reservation Receipt"
+      : currentReservation?.status === "cancelled"
+        ? "Cancelled Reservation"
+        : "Reservation Confirmation";
   const statusAction =
     currentReservation?.status === "pending"
-      ? { label: "Confirm reservation", href: "confirm", disabled: (financials?.netPaid || 0) <= 0 }
+      ? {
+          label: "Confirm reservation",
+          href: "confirm",
+          disabled: (financials?.netPaid || 0) <= 0,
+        }
       : currentReservation?.status === "confirmed"
-        ? { label: "Check in", href: "check-in", disabled: (financials?.netPaid || 0) < (financials?.checkInPaymentRequired || 0) }
+        ? {
+            label: "Check in",
+            href: "check-in",
+            disabled:
+              (financials?.netPaid || 0) <
+              (financials?.checkInPaymentRequired || 0),
+          }
         : currentReservation?.status === "checked_in"
-          ? { label: "Check out", href: "check-out", disabled: (financials?.balance || 0) > 0 }
+          ? {
+              label: "Check out",
+              href: "check-out",
+              disabled: (financials?.balance || 0) > 0,
+            }
           : null;
   const paymentAction =
     currentReservation?.status === "pending" && (financials?.netPaid || 0) <= 0
-      ? { paymentType: "downpayment", target: "" }
-      : currentReservation?.status === "confirmed" && (financials?.netPaid || 0) < (financials?.checkInPaymentRequired || 0)
+      ? { paymentType: "partial_payment", target: "" }
+      : currentReservation?.status === "confirmed" &&
+          (financials?.netPaid || 0) < (financials?.checkInPaymentRequired || 0)
         ? { paymentType: "partial_payment", target: "check_in" }
-        : currentReservation?.status === "checked_in" && (financials?.balance || 0) > 0
+        : currentReservation?.status === "checked_in" &&
+            (financials?.balance || 0) > 0
           ? { paymentType: "full_payment", target: "" }
           : null;
 
   const reloadReservation = async () => {
-    const nextReservation = await getAdminReservationById(currentReservation.id);
+    const nextReservation = await getAdminReservationById(
+      currentReservation.id,
+    );
     setCurrentReservation(nextReservation);
     onReservationUpdated?.(nextReservation);
     return nextReservation;
   };
 
-  const openPaymentModal = (paymentType = "downpayment", target = "") => {
-    const amountNeededForCheckIn = Math.max((financials?.checkInPaymentRequired || 0) - (financials?.netPaid || 0), 0);
+  const openPaymentModal = (paymentType = "partial_payment", target = "") => {
+    const amountNeededForCheckIn = Math.max(
+      (financials?.checkInPaymentRequired || 0) - (financials?.netPaid || 0),
+      0,
+    );
     const nextAmount =
       paymentType === "refund"
         ? financials.netPaid
@@ -158,6 +255,23 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
       paymentType,
       amount: nextAmount > 0 ? String(nextAmount) : "",
     });
+    setEditingPayment(null);
+    setPaymentOpen(true);
+  };
+
+  const openEditPaymentModal = (payment) => {
+    setPaymentForm({
+      paymentType:
+        payment.payment_type === "downpayment"
+          ? "partial_payment"
+          : payment.payment_type || "partial_payment",
+      amount: String(payment.amount || ""),
+      method: payment.method || "cash",
+      referenceNumber: payment.reference_number || "",
+      notes: payment.notes || "",
+      paidAt: payment.paid_at || "",
+    });
+    setEditingPayment(payment);
     setPaymentOpen(true);
   };
 
@@ -165,10 +279,18 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
     if (paymentSaving) return;
     setPaymentOpen(false);
     setPaymentForm(emptyPaymentForm);
+    setEditingPayment(null);
   };
 
   const handlePaymentFormChange = (event) => {
-    setPaymentForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setPaymentForm((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === "paymentType" && value === "full_payment"
+        ? { amount: fullPaymentAmount > 0 ? String(fullPaymentAmount) : "" }
+        : {}),
+    }));
   };
 
   const handleSavePayment = async () => {
@@ -177,19 +299,52 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
     setError("");
 
     try {
-      await addReservationPayment(currentReservation, paymentForm);
+      if (editingPayment) {
+        await updateReservationPayment(
+          currentReservation,
+          editingPayment.id,
+          paymentForm,
+        );
+      } else {
+        await addReservationPayment(currentReservation, paymentForm);
+      }
       await reloadReservation();
       setPaymentOpen(false);
       setPaymentForm(emptyPaymentForm);
+      setEditingPayment(null);
     } catch (err) {
-      setError(err.message || "Unable to record payment.");
+      setError(err.message || "Unable to save payment.");
     } finally {
       setPaymentSaving(false);
     }
   };
 
+  const closeDeletePaymentModal = () => {
+    if (deletePaymentSaving) return;
+    setDeletePayment(null);
+  };
+
+  const handleDeletePayment = async () => {
+    if (!currentReservation || !deletePayment) return;
+    setDeletePaymentSaving(true);
+    setError("");
+
+    try {
+      await deleteReservationPayment(currentReservation, deletePayment.id);
+      await reloadReservation();
+      setDeletePayment(null);
+    } catch (err) {
+      setError(err.message || "Unable to delete payment.");
+    } finally {
+      setDeletePaymentSaving(false);
+    }
+  };
+
   const openCancelModal = () => {
-    setCancelForm(emptyCancelForm);
+    setCancelForm({
+      ...emptyCancelForm,
+      refundAmount: canRecordRefund ? String(financials.netPaid) : "",
+    });
     setCancelOpen(true);
   };
 
@@ -200,7 +355,10 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
   };
 
   const handleCancelFormChange = (event) => {
-    setCancelForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    setCancelForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
   };
 
   const handleCancelReservation = async () => {
@@ -251,8 +409,10 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
         ? "full_payment"
         : nextAction.href.includes("partial_payment")
           ? "partial_payment"
-          : "downpayment";
-      const target = nextAction.href.includes("target=check_in") ? "check_in" : "";
+          : "partial_payment";
+      const target = nextAction.href.includes("target=check_in")
+        ? "check_in"
+        : "";
       openPaymentModal(paymentType, target);
       return;
     }
@@ -311,13 +471,17 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
     }
 
     const roomRows = rooms.length
-      ? rooms.map((reservedRoom) => `
+      ? rooms
+          .map(
+            (reservedRoom) => `
           <tr>
             <td>${escapePrintValue(reservedRoom.rooms?.name || "Room")}</td>
             <td>${escapePrintValue(reservedRoom.reserved_quantity || 0)}</td>
             <td>${escapePrintValue(formatMoney(reservedRoom.rooms?.rate))} / night</td>
           </tr>
-        `).join("")
+        `,
+          )
+          .join("")
       : `<tr><td colspan="3">No rooms recorded.</td></tr>`;
 
     printWindow.document.open();
@@ -325,7 +489,7 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
       <!doctype html>
       <html>
         <head>
-          <title>Reservation Confirmation ${escapePrintValue(shortReference(currentReservation.id))}</title>
+          <title>${escapePrintValue(printTitle)} ${escapePrintValue(shortReference(currentReservation.id))}</title>
           <style>
             body { color: #111827; font-family: Arial, sans-serif; margin: 40px; }
             h1 { font-size: 24px; margin: 0 0 4px; }
@@ -342,13 +506,13 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
           </style>
         </head>
         <body>
-          <h1>Reservation Confirmation</h1>
+          <h1>${escapePrintValue(printTitle)}</h1>
           <div class="muted">Ref ${escapePrintValue(shortReference(currentReservation.id))}</div>
 
           <h2>Guest</h2>
           <div class="grid">
             <div><div class="label">Name</div><div class="value">${escapePrintValue(guestName(customer))}</div></div>
-            <div><div class="label">Status</div><div class="value">Confirmed</div></div>
+            <div><div class="label">Status</div><div class="value">${escapePrintValue(formatStatusLabel(currentReservation.status))}</div></div>
             <div><div class="label">Email</div><div class="value">${escapePrintValue(customer.email || "No email")}</div></div>
             <div><div class="label">Contact</div><div class="value">${escapePrintValue(customer.contact_number || "No contact number")}</div></div>
             <div><div class="label">Stay</div><div class="value">${escapePrintValue(formatDateRange(currentReservation))}</div></div>
@@ -383,162 +547,504 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
         <DialogTitle sx={{ pb: 1, pr: 6, position: "relative" }}>
           <DialogCloseButton onClick={onClose} />
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+          >
             <Box>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                sx={{ flexWrap: "wrap" }}
+              >
                 <Typography variant="h6" sx={{ fontWeight: 800 }}>
                   {currentReservation ? guestName(customer) : "Reservation"}
                 </Typography>
                 {currentReservation && (
-                  <Chip label={currentReservation.status} color={statusColors[currentReservation.status] || "default"} size="small" />
+                  <Chip
+                    label={currentReservation.status}
+                    color={statusColors[currentReservation.status] || "default"}
+                    size="small"
+                  />
                 )}
               </Stack>
               {currentReservation && (
                 <Typography color="text.secondary" variant="body2">
-                  Ref {shortReference(currentReservation.id)} / {formatDateRange(currentReservation)}
+                  Ref {shortReference(currentReservation.id)} /{" "}
+                  {formatDateRange(currentReservation)}
                 </Typography>
               )}
             </Box>
           </Stack>
         </DialogTitle>
         <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           {currentReservation && (
             <Stack spacing={2} sx={{ pt: 1 }}>
               <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography sx={{ fontWeight: 800, mb: 1.5 }}>Customer details</Typography>
-                <Box
-                  sx={{
-                    display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-                  }}
-                >
-                  <Box>
-                    <Typography color="text.secondary" variant="caption">Contact</Typography>
-                    <Typography variant="body2">{customer.email || "No email"}</Typography>
-                    <Typography variant="body2">{customer.contact_number || "No contact number"}</Typography>
+                <Typography sx={{ fontWeight: 700, mb: 1.5 }}>
+                  Reservation summary
+                </Typography>
+                <Stack spacing={2.5}>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gap: 3,
+                      gridTemplateColumns: {
+                        xs: "1fr",
+                        md: "minmax(0, 1.3fr) minmax(0, 1fr) minmax(220px, 0.8fr)",
+                      },
+                    }}
+                  >
+                    <Stack spacing={1}>
+                      <Box>
+                        <Typography color="text.secondary" variant="caption">
+                          Guest
+                        </Typography>
+                        <Typography>{guestName(customer)}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography color="text.secondary" variant="caption">
+                          Contact
+                        </Typography>
+                        <Typography variant="body2">
+                          {customer.email || "No email"}
+                        </Typography>
+                        <Typography variant="body2">
+                          {customer.contact_number || "No contact number"}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography color="text.secondary" variant="caption">
+                          Status
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ textTransform: "capitalize" }}
+                        >
+                          {String(currentReservation.status || "").replace(
+                            "_",
+                            " ",
+                          )}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Stack spacing={1}>
+                      <Box>
+                        <Typography color="text.secondary" variant="caption">
+                          Stay
+                        </Typography>
+                        <Typography variant="body2">
+                          {formatDateRange(currentReservation)}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography color="text.secondary" variant="caption">
+                          Nights
+                        </Typography>
+                        <Typography variant="body2">
+                          {stayNights} {stayNights === 1 ? "night" : "nights"}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography color="text.secondary" variant="caption">
+                          Guests
+                        </Typography>
+                        <Typography variant="body2">
+                          {currentReservation.adult || 0} adult
+                          {Number(currentReservation.adult) === 1 ? "" : "s"},{" "}
+                          {currentReservation.children || 0} child
+                          {Number(currentReservation.children) === 1
+                            ? ""
+                            : "ren"}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Stack
+                      spacing={1.25}
+                      sx={{ bgcolor: "grey.50", borderRadius: 1, p: 1.5 }}
+                    >
+                      <FinancialKpi
+                        label="Total"
+                        value={formatMoney(financials.total)}
+                      />
+                      <FinancialKpi
+                        label="Paid"
+                        value={formatMoney(financials.paid)}
+                        color="success.main"
+                      />
+                      <Divider />
+                      <FinancialKpi
+                        label="Balance"
+                        value={formatMoney(financials.balance)}
+                        color={
+                          financials.balance > 0 ? "error.main" : "success.main"
+                        }
+                      />
+                    </Stack>
                   </Box>
+
+                  <Divider />
+
                   <Box>
-                    <Typography color="text.secondary" variant="caption">Guests</Typography>
-                    <Typography variant="body2">
-                      {currentReservation.adult || 0} adult{Number(currentReservation.adult) === 1 ? "" : "s"}, {currentReservation.children || 0} child
-                      {Number(currentReservation.children) === 1 ? "" : "ren"}
+                    <Typography sx={{ fontWeight: 700, mb: 1.5 }}>
+                      Rooms
                     </Typography>
+                    {rooms.length ? (
+                      <Box
+                        sx={{
+                          border: 1,
+                          borderColor: "divider",
+                          borderRadius: 1,
+                          overflowX: "auto",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            bgcolor: "grey.50",
+                            display: "grid",
+                            gap: 1,
+                            gridTemplateColumns:
+                              "minmax(160px, 1fr) 64px 120px 72px 120px",
+                            minWidth: 620,
+                            px: 1.5,
+                            py: 1,
+                          }}
+                        >
+                          <Typography color="text.secondary" variant="caption">
+                            Room
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ textAlign: "right" }}
+                          >
+                            Qty
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ textAlign: "right" }}
+                          >
+                            Rate
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ textAlign: "right" }}
+                          >
+                            Nights
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ textAlign: "right" }}
+                          >
+                            Total
+                          </Typography>
+                        </Box>
+                        {rooms.map((reservedRoom) => {
+                          const quantity = Number(
+                            reservedRoom.reserved_quantity || 0,
+                          );
+                          const rate = Number(reservedRoom.rooms?.rate || 0);
+                          const lineTotal = quantity * rate * stayNights;
+
+                          return (
+                            <Box
+                              key={reservedRoom.id}
+                              sx={{
+                                borderTop: 1,
+                                borderColor: "divider",
+                                display: "grid",
+                                gap: 1,
+                                gridTemplateColumns:
+                                  "minmax(160px, 1fr) 64px 120px 72px 120px",
+                                minWidth: 620,
+                                px: 1.5,
+                                py: 1.25,
+                              }}
+                            >
+                              <Typography>
+                                {reservedRoom.rooms?.name || "Room"}
+                              </Typography>
+                              <Typography sx={{ textAlign: "right" }}>
+                                {quantity}
+                              </Typography>
+                              <Typography sx={{ textAlign: "right" }}>
+                                {formatMoney(rate)}
+                              </Typography>
+                              <Typography sx={{ textAlign: "right" }}>
+                                {stayNights}
+                              </Typography>
+                              <Typography sx={{ textAlign: "right" }}>
+                                {formatMoney(lineTotal)}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
+                        <Box
+                          sx={{
+                            borderTop: 1,
+                            borderColor: "divider",
+                            display: "grid",
+                            gap: 1,
+                            gridTemplateColumns:
+                              "minmax(160px, 1fr) 64px 120px 72px 120px",
+                            minWidth: 620,
+                            px: 1.5,
+                            py: 1.25,
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              fontWeight: 700,
+                              gridColumn: "1 / 5",
+                              textAlign: "right",
+                            }}
+                          >
+                            Room total
+                          </Typography>
+                          <Typography
+                            sx={{ fontWeight: 700, textAlign: "right" }}
+                          >
+                            {formatMoney(financials.total)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Typography color="text.secondary" variant="body2">
+                        No rooms recorded.
+                      </Typography>
+                    )}
                   </Box>
-                  <Box>
-                    <Typography color="text.secondary" variant="caption">Stay</Typography>
-                    <Typography variant="body2">{formatDateRange(currentReservation)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography color="text.secondary" variant="caption">Status</Typography>
-                    <Typography variant="body2" sx={{ textTransform: "capitalize" }}>
-                      {String(currentReservation.status || "").replace("_", " ")}
-                    </Typography>
-                  </Box>
-                </Box>
+                </Stack>
               </Paper>
 
               <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography sx={{ fontWeight: 800, mb: 1.5 }}>Rooms</Typography>
-                {rooms.length ? (
-                  <Stack divider={<Divider />} spacing={1}>
-                    {rooms.map((reservedRoom) => (
-                      <Stack key={reservedRoom.id} direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ py: 0.75 }}>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 700 }}>
-                            {reservedRoom.rooms?.name || "Room"}
-                          </Typography>
-                          <Typography color="text.secondary" variant="body2">
-                            {formatMoney(reservedRoom.rooms?.rate)} / night
-                          </Typography>
-                        </Box>
-                        <Typography sx={{ fontWeight: 800, whiteSpace: "nowrap" }}>
-                          x {reservedRoom.reserved_quantity}
+                <Typography sx={{ fontWeight: 700, mb: 1.5 }}>
+                  Payments
+                </Typography>
+                {payments.length ? (
+                  <Box
+                    sx={{
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      overflowX: "auto",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        bgcolor: "grey.50",
+                        display: "grid",
+                        gap: 1,
+                        gridTemplateColumns: paymentGridColumns,
+                        minWidth: paymentTableMinWidth,
+                        pl: 1.5,
+                        pr: 0.75,
+                        py: 1,
+                      }}
+                    >
+                      <Typography color="text.secondary" variant="caption">
+                        Date
+                      </Typography>
+                      <Typography color="text.secondary" variant="caption">
+                        Type
+                      </Typography>
+                      <Typography color="text.secondary" variant="caption">
+                        Method
+                      </Typography>
+                      <Typography
+                        color="text.secondary"
+                        variant="caption"
+                        sx={{ textAlign: "right" }}
+                      >
+                        Amount
+                      </Typography>
+                      {canModifyPayments && (
+                        <Typography
+                          color="text.secondary"
+                          variant="caption"
+                          sx={{ textAlign: "right" }}
+                        >
+                          Actions
                         </Typography>
-                      </Stack>
-                    ))}
-                  </Stack>
+                      )}
+                    </Box>
+                    {[...payments]
+                      .sort(
+                        (first, second) =>
+                          new Date(second.paid_at) - new Date(first.paid_at),
+                      )
+                      .map((payment) => (
+                        <Box
+                          key={payment.id}
+                          sx={{
+                            alignItems: "center",
+                            borderTop: 1,
+                            borderColor: "divider",
+                            display: "grid",
+                            gap: 1,
+                            gridTemplateColumns: paymentGridColumns,
+                            minWidth: paymentTableMinWidth,
+                            pl: 1.5,
+                            pr: 0.75,
+                            py: 1,
+                          }}
+                        >
+                          <Typography variant="body2">
+                            {formatDateTime(payment.paid_at)}
+                          </Typography>
+                          <Typography variant="body2">
+                            {paymentTypeLabels[payment.payment_type] ||
+                              payment.payment_type}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ textTransform: "capitalize" }}
+                          >
+                            {String(payment.method || "").replace("_", " ")}
+                          </Typography>
+                          <Typography
+                            sx={{ textAlign: "right", whiteSpace: "nowrap" }}
+                            color={
+                              payment.payment_type === "refund"
+                                ? "error.main"
+                                : "success.main"
+                            }
+                          >
+                            {payment.payment_type === "refund" ? "-" : "+"}
+                            {formatMoney(payment.amount)}
+                          </Typography>
+                          {canModifyPayments && (
+                            <Box sx={{ display: "flex", justifyContent:"flex-end" }}>
+                              <IconButton
+                                aria-label="Edit payment"
+                                size="small"
+                                onClick={() => openEditPaymentModal(payment)}
+                                sx={{ p: 0.5 }}
+                              >
+                                <EditIcon fontSize="inherit" />
+                              </IconButton>
+                              <IconButton
+                                aria-label="Delete payment"
+                                size="small"
+                                color="error"
+                                onClick={() => setDeletePayment(payment)}
+                                sx={{ p: 0.5 }}
+                              >
+                                <DeleteIcon fontSize="inherit" />
+                              </IconButton>
+                            </Box>
+                          )}
+                        </Box>
+                      ))}
+                    <Box
+                      sx={{
+                        borderTop: 1,
+                        borderColor: "divider",
+                        display: "grid",
+                        gap: 1,
+                        gridTemplateColumns: paymentGridColumns,
+                        minWidth: paymentTableMinWidth,
+                        pl: 1.5,
+                        pr: 0.75,
+                        py: 1.25,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          gridColumn: "1 / 4",
+                          textAlign: "right",
+                        }}
+                      >
+                        Net paid
+                      </Typography>
+                      <Typography sx={{ fontWeight: 700, textAlign: "right" }}>
+                        {formatMoney(financials.netPaid)}
+                      </Typography>
+                      {canModifyPayments && <Box />}
+                    </Box>
+                  </Box>
                 ) : (
-                  <Typography color="text.secondary" variant="body2">No rooms recorded.</Typography>
+                  <Typography color="text.secondary" variant="body2">
+                    No payments recorded.
+                  </Typography>
                 )}
               </Paper>
-
-              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" } }}>
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography sx={{ fontWeight: 800, mb: 1.5 }}>Payments</Typography>
-                  {payments.length ? (
-                    <Stack divider={<Divider />} spacing={1}>
-                      {[...payments]
-                        .sort((first, second) => new Date(second.paid_at) - new Date(first.paid_at))
-                        .map((payment) => (
-                          <Stack key={payment.id} direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ py: 0.75 }}>
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography color="text.secondary" variant="body2">
-                                {formatDateTime(payment.paid_at)}
-                              </Typography>
-                              <Typography sx={{ fontWeight: 700 }}>
-                                {paymentTypeLabels[payment.payment_type] || payment.payment_type}
-                              </Typography>
-                              <Typography color="text.secondary" variant="caption">
-                                {String(payment.method || "").replace("_", " ")}
-                                {payment.reference_number ? ` / ${payment.reference_number}` : ""}
-                              </Typography>
-                            </Box>
-                            <Typography sx={{ fontWeight: 800, whiteSpace: "nowrap" }} color={payment.payment_type === "refund" ? "error.main" : "success.main"}>
-                              {payment.payment_type === "refund" ? "-" : "+"}
-                              {formatMoney(payment.amount)}
-                            </Typography>
-                          </Stack>
-                        ))}
-                    </Stack>
-                  ) : (
-                    <Typography color="text.secondary" variant="body2">No payments recorded.</Typography>
-                  )}
-                </Paper>
-
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography sx={{ fontWeight: 800, mb: 1.5 }}>Financials</Typography>
-                  <Stack divider={<Divider />} spacing={1.25}>
-                    <SummaryRow label="Total" value={formatMoney(financials.total)} />
-                    <SummaryRow label="Paid" value={formatMoney(financials.paid)} />
-                    {financials.refunded > 0 && (
-                      <SummaryRow label="Refunded" value={formatMoney(financials.refunded)} />
-                    )}
-                    <SummaryRow
-                      label="Balance"
-                      value={formatMoney(financials.balance)}
-                      color={financials.balance > 0 ? "error.main" : "success.main"}
-                    />
-                  </Stack>
-                </Paper>
-              </Box>
             </Stack>
           )}
         </DialogContent>
-        {currentReservation && actionsAvailable && (
-          <DialogActions sx={{ flexWrap: "wrap", gap: 1, justifyContent: "flex-end", px: 3, py: 2 }}>
-            {canPrintConfirmation && (
-              <Button onClick={handlePrintConfirmation} variant="outlined" startIcon={<PrintIcon />}>
-                Print confirmation
+        {currentReservation && (actionsAvailable || canPrintReservation) && (
+          <DialogActions
+            sx={{
+              flexWrap: "wrap",
+              gap: 1,
+              justifyContent: "flex-end",
+              px: 3,
+              py: 2,
+            }}
+          >
+            {canPrintReservation && (
+              <Button
+                onClick={handlePrintConfirmation}
+                variant="outlined"
+                startIcon={<PrintIcon />}
+              >
+                {currentReservation.status === "checked_out"
+                  ? "Print receipt"
+                  : currentReservation.status === "cancelled"
+                    ? "Print cancellation"
+                    : "Print confirmation"}
               </Button>
             )}
             {canCancelReservation && (
-              <Button onClick={openCancelModal} color="error" variant="outlined">
+              <Button
+                onClick={openCancelModal}
+                color="error"
+                variant="outlined"
+              >
                 Cancel reservation
               </Button>
             )}
             {paymentAction && (
-              <Button onClick={() => openPaymentModal(paymentAction.paymentType, paymentAction.target)} variant="outlined">
+              <Button
+                onClick={() =>
+                  openPaymentModal(
+                    paymentAction.paymentType,
+                    paymentAction.target,
+                  )
+                }
+                variant="outlined"
+              >
                 Record payment
               </Button>
             )}
             {statusAction ? (
-              <Button variant="contained" onClick={handleStatusAction} disabled={actionSaving || statusAction.disabled}>
+              <Button
+                variant="contained"
+                onClick={handleStatusAction}
+                disabled={actionSaving || statusAction.disabled}
+              >
                 {actionSaving ? "Saving..." : statusAction.label}
               </Button>
             ) : nextAction ? (
-              <Button variant="contained" onClick={handlePrimaryAction} disabled={actionSaving}>
+              <Button
+                variant="contained"
+                onClick={handlePrimaryAction}
+                disabled={actionSaving}
+              >
                 {actionSaving ? "Saving..." : nextAction.label}
               </Button>
             ) : null}
@@ -546,23 +1052,51 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
         )}
       </Dialog>
 
-      <Dialog open={paymentOpen} onClose={closePaymentModal} fullWidth maxWidth="xs">
+      <Dialog
+        open={paymentOpen}
+        onClose={closePaymentModal}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle sx={{ pr: 6, position: "relative" }}>
-          Record payment
-          <DialogCloseButton onClick={closePaymentModal} disabled={paymentSaving} />
+          {editingPayment ? "Edit payment" : "Record payment"}
+          <DialogCloseButton
+            onClick={closePaymentModal}
+            disabled={paymentSaving}
+          />
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
-              <Typography sx={{ fontWeight: 800 }}>{currentReservation ? guestName(currentReservation.customers) : ""}</Typography>
+              <Typography sx={{ fontWeight: 800 }}>
+                {currentReservation
+                  ? guestName(currentReservation.customers)
+                  : ""}
+              </Typography>
               <Typography color="text.secondary" variant="body2">
-                Balance {formatMoney(financials?.balance)} / Net paid {formatMoney(financials?.netPaid)}
+                Balance {formatMoney(financials?.balance)} / Net paid{" "}
+                {formatMoney(financials?.netPaid)}
               </Typography>
             </Paper>
-            <TextField select label="Type" name="paymentType" value={paymentForm.paymentType} onChange={handlePaymentFormChange} fullWidth>
-              <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
-              <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
-              <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
+            <TextField
+              select
+              label="Type"
+              name="paymentType"
+              value={paymentForm.paymentType}
+              onChange={handlePaymentFormChange}
+              fullWidth
+            >
+              <MenuItem value="partial_payment">
+                {paymentTypeLabels.partial_payment}
+              </MenuItem>
+              <MenuItem value="full_payment">
+                {paymentTypeLabels.full_payment}
+              </MenuItem>
+              {editingPayment?.payment_type === "refund" && (
+                <MenuItem value="refund">
+                  {paymentTypeLabels.refund || "Refund"}
+                </MenuItem>
+              )}
             </TextField>
             <TextField
               label="Amount"
@@ -570,83 +1104,241 @@ export default function ReservationViewDialog({ open, reservation, onClose, onRe
               type="number"
               value={paymentForm.amount}
               onChange={handlePaymentFormChange}
-              inputProps={{ min: paymentForm.paymentType === "full_payment" ? financials?.balance || 1 : 1, step: "0.01" }}
+              inputProps={{
+                min:
+                  paymentForm.paymentType === "full_payment"
+                    ? fullPaymentAmount || 1
+                    : 1,
+                readOnly: paymentForm.paymentType === "full_payment",
+                step: "0.01",
+              }}
+              helperText={
+                paymentForm.paymentType === "full_payment"
+                  ? "Full payment uses the remaining balance."
+                  : ""
+              }
               fullWidth
               required
             />
-            <TextField select label="Method" name="method" value={paymentForm.method} onChange={handlePaymentFormChange} fullWidth>
+            <TextField
+              select
+              label="Method"
+              name="method"
+              value={paymentForm.method}
+              onChange={handlePaymentFormChange}
+              fullWidth
+            >
               {paymentMethods.map((method) => (
-                <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
+                <MenuItem key={method.value} value={method.value}>
+                  {method.label}
+                </MenuItem>
               ))}
             </TextField>
-            <TextField label="Notes" name="notes" value={paymentForm.notes} onChange={handlePaymentFormChange} fullWidth multiline minRows={3} />
+            <TextField
+              label="Notes"
+              name="notes"
+              value={paymentForm.notes}
+              onChange={handlePaymentFormChange}
+              fullWidth
+              multiline
+              minRows={3}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button variant="contained" onClick={handleSavePayment} disabled={paymentSaving || !paymentForm.amount}>
-            {paymentSaving ? "Saving..." : "Save payment"}
+          <Button
+            variant="contained"
+            onClick={handleSavePayment}
+            disabled={paymentSaving || !paymentForm.amount}
+          >
+            {paymentSaving
+              ? "Saving..."
+              : editingPayment
+                ? "Update payment"
+                : "Save payment"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={cancelOpen} onClose={closeCancelModal} fullWidth maxWidth="xs">
+      <Dialog
+        open={Boolean(deletePayment)}
+        onClose={closeDeletePaymentModal}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Delete payment
+          <DialogCloseButton
+            onClick={closeDeletePaymentModal}
+            disabled={deletePaymentSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="warning">
+              This will remove the payment from the reservation and recalculate
+              the financials.
+            </Alert>
+            {deletePayment && (
+              <Paper variant="outlined" sx={{ p: 1.5 }}>
+                <Typography sx={{ fontWeight: 800 }}>
+                  {deletePayment.payment_type === "refund" ? "-" : "+"}
+                  {formatMoney(deletePayment.amount)}
+                </Typography>
+                <Typography color="text.secondary" variant="body2">
+                  {paymentTypeLabels[deletePayment.payment_type] ||
+                    deletePayment.payment_type}{" "}
+                  / {formatDateTime(deletePayment.paid_at)}
+                </Typography>
+              </Paper>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeDeletePaymentModal}
+            disabled={deletePaymentSaving}
+          >
+            Keep payment
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleDeletePayment}
+            disabled={deletePaymentSaving}
+          >
+            {deletePaymentSaving ? "Deleting..." : "Delete payment"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={cancelOpen}
+        onClose={closeCancelModal}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle sx={{ pr: 6, position: "relative" }}>
           Cancel reservation
-          <DialogCloseButton onClick={closeCancelModal} disabled={cancelSaving} />
+          <DialogCloseButton
+            onClick={closeCancelModal}
+            disabled={cancelSaving}
+          />
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
-              <Typography sx={{ fontWeight: 800 }}>{currentReservation ? guestName(currentReservation.customers) : ""}</Typography>
+              <Typography sx={{ fontWeight: 800 }}>
+                {currentReservation
+                  ? guestName(currentReservation.customers)
+                  : ""}
+              </Typography>
               <Typography color="text.secondary" variant="body2">
                 Net paid {formatMoney(financials?.netPaid)}
               </Typography>
             </Paper>
+            {canRecordRefund ? (
+              <>
+                <TextField
+                  label="Refund amount"
+                  name="refundAmount"
+                  type="number"
+                  value={cancelForm.refundAmount}
+                  onChange={handleCancelFormChange}
+                  inputProps={{
+                    min: 0.01,
+                    max: financials?.netPaid || 0,
+                    step: "0.01",
+                  }}
+                  helperText="Required when there is a refundable amount."
+                  fullWidth
+                />
+                <TextField
+                  select
+                  label="Refund method"
+                  name="method"
+                  value={cancelForm.method}
+                  onChange={handleCancelFormChange}
+                  fullWidth
+                >
+                  {paymentMethods.map((method) => (
+                    <MenuItem key={method.value} value={method.value}>
+                      {method.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </>
+            ) : (
+              <Typography color="text.secondary" variant="body2">
+                No refundable amount.
+              </Typography>
+            )}
             <TextField
-              label="Refund amount"
-              name="refundAmount"
-              type="number"
-              value={cancelForm.refundAmount}
+              label="Cancellation notes"
+              name="notes"
+              value={cancelForm.notes}
               onChange={handleCancelFormChange}
-              inputProps={{ min: 0, max: financials?.netPaid || 0, step: "0.01" }}
-              helperText="Leave blank or 0 if there is no refund."
               fullWidth
+              multiline
+              minRows={3}
             />
-            <TextField select label="Refund method" name="method" value={cancelForm.method} onChange={handleCancelFormChange} fullWidth>
-              {paymentMethods.map((method) => (
-                <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
-              ))}
-            </TextField>
-            <TextField label="Cancellation notes" name="notes" value={cancelForm.notes} onChange={handleCancelFormChange} fullWidth multiline minRows={3} />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button color="error" variant="contained" onClick={handleCancelReservation} disabled={cancelSaving}>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleCancelReservation}
+            disabled={
+              cancelSaving ||
+              (
+                canRecordRefund &&
+                (!Number.isFinite(Number(cancelForm.refundAmount)) || Number(cancelForm.refundAmount) <= 0)
+              )
+            }
+          >
             {cancelSaving ? "Cancelling..." : "Cancel reservation"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={checkoutOpen} onClose={closeCheckoutModal} fullWidth maxWidth="xs">
+      <Dialog
+        open={checkoutOpen}
+        onClose={closeCheckoutModal}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle sx={{ pr: 6, position: "relative" }}>
           Check out guest
-          <DialogCloseButton onClick={closeCheckoutModal} disabled={checkoutSaving} />
+          <DialogCloseButton
+            onClick={closeCheckoutModal}
+            disabled={checkoutSaving}
+          />
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Paper variant="outlined" sx={{ p: 1.5 }}>
-              <Typography sx={{ fontWeight: 800 }}>{currentReservation ? guestName(currentReservation.customers) : ""}</Typography>
+              <Typography sx={{ fontWeight: 800 }}>
+                {currentReservation
+                  ? guestName(currentReservation.customers)
+                  : ""}
+              </Typography>
               <Typography color="text.secondary" variant="body2">
                 Balance {formatMoney(financials?.balance)}
               </Typography>
             </Paper>
             <Typography color="text.secondary">
-              Confirm that the guest has settled the stay and is ready to check out.
+              Confirm that the guest has settled the stay and is ready to check
+              out.
             </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button variant="contained" onClick={handleCheckoutReservation} disabled={checkoutSaving || (financials?.balance || 0) > 0}>
+          <Button
+            variant="contained"
+            onClick={handleCheckoutReservation}
+            disabled={checkoutSaving || (financials?.balance || 0) > 0}
+          >
             {checkoutSaving ? "Checking out..." : "Check out"}
           </Button>
         </DialogActions>

@@ -12,7 +12,7 @@ export default function ReservationPaymentPage() {
   const { id, type } = router.query;
   const [reservation, setReservation] = useState(null);
   const [form, setForm] = useState({
-    paymentType: "downpayment",
+    paymentType: "partial_payment",
     amount: "",
     method: "cash",
     referenceNumber: "",
@@ -37,9 +37,7 @@ export default function ReservationPaymentPage() {
         const financials = getReservationFinancials(nextReservation);
         const paymentType = type === "full_payment"
           ? "full_payment"
-          : type === "partial_payment"
-            ? "partial_payment"
-            : "downpayment";
+          : "partial_payment";
         const amount = paymentType === "full_payment"
             ? financials.balance
             : Math.min(financials.downpaymentRequired, financials.balance);
@@ -66,9 +64,17 @@ export default function ReservationPaymentPage() {
   };
 
   const financials = reservation ? getReservationFinancials(reservation) : null;
+  const fullPaymentAmount = Math.max(financials?.balance || 0, 0);
 
   const handleChange = (event) => {
-    setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === "paymentType" && value === "full_payment"
+        ? { amount: fullPaymentAmount > 0 ? String(fullPaymentAmount) : "" }
+        : {}),
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -107,7 +113,6 @@ export default function ReservationPaymentPage() {
                     </Typography>
                   </Box>
                   <TextField select label="Payment type" name="paymentType" value={form.paymentType} onChange={handleChange} fullWidth>
-                    <MenuItem value="downpayment">{paymentTypeLabels.downpayment}</MenuItem>
                     <MenuItem value="partial_payment">{paymentTypeLabels.partial_payment}</MenuItem>
                     <MenuItem value="full_payment">{paymentTypeLabels.full_payment}</MenuItem>
                   </TextField>
@@ -117,7 +122,12 @@ export default function ReservationPaymentPage() {
                     type="number"
                     value={form.amount}
                     onChange={handleChange}
-                    inputProps={{ min: form.paymentType === "full_payment" ? financials.balance || 1 : 1, step: "0.01" }}
+                    inputProps={{
+                      min: form.paymentType === "full_payment" ? fullPaymentAmount || 1 : 1,
+                      readOnly: form.paymentType === "full_payment",
+                      step: "0.01",
+                    }}
+                    helperText={form.paymentType === "full_payment" ? "Full payment uses the remaining balance." : ""}
                     fullWidth
                     required
                   />

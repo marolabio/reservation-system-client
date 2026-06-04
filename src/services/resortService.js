@@ -645,7 +645,7 @@ export async function updateReservationStatus(id, status) {
   const financials = getReservationFinancials(existingReservation);
 
   if (status === "confirmed" && financials.netPaid <= 0) {
-    throw new Error("Record a downpayment before confirming this reservation.");
+    throw new Error("Record a partial payment before confirming this reservation.");
   }
 
   if (status === "checked_in" && !["confirmed", "checked_in"].includes(existingReservation.status)) {
@@ -729,7 +729,7 @@ function getReservationPaymentPayload(values) {
   }
 
   return {
-    payment_type: values.paymentType || "downpayment",
+    payment_type: values.paymentType || "partial_payment",
     amount,
     method: values.method || "cash",
     reference_number: values.referenceNumber?.trim() || null,
@@ -744,7 +744,7 @@ function validateReservationPayment(reservation, values, excludedPaymentId, { al
     throw new Error("Enter a valid payment amount.");
   }
 
-  const paymentType = values.paymentType || "downpayment";
+  const paymentType = values.paymentType || "partial_payment";
 
   if (paymentType === "refund" && !allowRefund) {
     throw new Error("Refunds can only be recorded when cancelling a reservation.");
@@ -812,8 +812,13 @@ export async function cancelReservation(reservation, values = {}) {
     throw new Error("Reservation was not found.");
   }
 
-  const refundAmount = Number(values.refundAmount || 0);
   const financials = getReservationFinancials(reservation);
+  const hasRefundableAmount = financials.netPaid > 0;
+  const refundAmount = hasRefundableAmount ? Number(values.refundAmount) : Number(values.refundAmount || 0);
+
+  if (hasRefundableAmount && (!Number.isFinite(refundAmount) || refundAmount <= 0)) {
+    throw new Error("Enter a valid refund amount.");
+  }
 
   if (refundAmount > financials.netPaid) {
     throw new Error("Refund cannot be greater than the net paid amount.");

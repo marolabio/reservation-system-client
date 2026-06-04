@@ -12,6 +12,8 @@ export default function BookingsPage() {
       title="Bookings"
       status="pending"
       tabs={bookingTabs}
+      hideTitleCount
+      showStayNights
     />
   );
 }

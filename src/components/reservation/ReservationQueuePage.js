@@ -25,16 +25,50 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SearchIcon from "@mui/icons-material/Search";
 import AdminLayout from "../layout/AdminLayout";
 import supabase from "../../utils/supabase";
-import { getAdminReservationsPage, getReservationDashboardStats, getReservationFinancials } from "../../services/resortService";
-import { formatDateRange, formatMoney, guestName, shortReference, statusColors } from "../../utils/reservationUi";
+import {
+  getAdminReservationsPage,
+  getReservationDashboardStats,
+  getReservationFinancials,
+} from "../../services/resortService";
+import {
+  formatDateRange,
+  formatMoney,
+  guestName,
+  shortReference,
+} from "../../utils/reservationUi";
 import ReservationViewDialog from "./ReservationViewDialog";
 
 function roomSummary(rooms = []) {
-  const totalRooms = rooms.reduce((sum, room) => sum + Number(room.reserved_quantity || 0), 0);
-  const roomNames = [...new Set(rooms.map((room) => room.rooms?.name).filter(Boolean))];
+  const totalRooms = rooms.reduce(
+    (sum, room) => sum + Number(room.reserved_quantity || 0),
+    0,
+  );
 
   if (!rooms.length || totalRooms === 0) return "No rooms";
-  return `${totalRooms} ${totalRooms === 1 ? "room" : "rooms"}${roomNames.length ? ` / ${roomNames.join(", ")}` : ""}`;
+  return `${totalRooms} ${totalRooms === 1 ? "room" : "rooms"}`;
+}
+
+function stayNightSummary(reservation) {
+  const nights = Math.max(
+    Math.ceil(
+      (new Date(reservation.checkout) - new Date(reservation.checkin)) /
+        (1000 * 60 * 60 * 24),
+    ),
+    0,
+  );
+
+  return `${nights} ${nights === 1 ? "night" : "nights"}`;
+}
+
+function guestCountSummary(reservation) {
+  const adults = Number(reservation.adult || 0);
+  const children = Number(reservation.children || 0);
+  const total = adults + children;
+
+  return {
+    total: `${total} ${total === 1 ? "guest" : "guests"}`,
+    breakdown: `${adults} adult${adults === 1 ? "" : "s"}, ${children} child${children === 1 ? "" : "ren"}`,
+  };
 }
 
 function countFromStats(stats, status) {
@@ -46,7 +80,15 @@ function countFromStats(stats, status) {
   return 0;
 }
 
-export default function ReservationQueuePage({ title, status, emptyMessage, tabs }) {
+export default function ReservationQueuePage({
+  title,
+  status,
+  emptyMessage,
+  tabs,
+  hideTitleCount = false,
+  hideFinancials = false,
+  showStayNights = false,
+}) {
   const router = useRouter();
   const [activeStatus, setActiveStatus] = useState(status);
   const [tabCounts, setTabCounts] = useState({});
@@ -87,10 +129,13 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
     try {
       const stats = await getReservationDashboardStats();
       setTabCounts(
-        tabs.reduce((counts, tab) => ({
-          ...counts,
-          [tab.status]: countFromStats(stats, tab.status),
-        }), {})
+        tabs.reduce(
+          (counts, tab) => ({
+            ...counts,
+            [tab.status]: countFromStats(stats, tab.status),
+          }),
+          {},
+        ),
       );
     } catch {
       setTabCounts({});
@@ -146,16 +191,20 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
     setSelectedReservation(nextReservation);
 
     if (nextReservation.status !== activeStatus) {
-      setReservations((current) => current.filter((reservation) => reservation.id !== nextReservation.id));
+      setReservations((current) =>
+        current.filter((reservation) => reservation.id !== nextReservation.id),
+      );
       setReservationCount((current) => Math.max(current - 1, 0));
       loadReservations();
       loadTabCounts();
       return;
     }
 
-    setReservations((current) => current.map((reservation) => (
-      reservation.id === nextReservation.id ? nextReservation : reservation
-    )));
+    setReservations((current) =>
+      current.map((reservation) =>
+        reservation.id === nextReservation.id ? nextReservation : reservation,
+      ),
+    );
     loadTabCounts();
   };
 
@@ -167,9 +216,12 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
               {title}
             </Typography>
-            <Typography color="text.secondary">
-              {reservationCount} reservation{reservationCount === 1 ? "" : "s"}
-            </Typography>
+            {!hideTitleCount && (
+              <Typography color="text.secondary">
+                {reservationCount} reservation
+                {reservationCount === 1 ? "" : "s"}
+              </Typography>
+            )}
           </Box>
 
           {tabs?.length ? (
@@ -204,7 +256,11 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
           ) : null}
 
           <Paper elevation={1} sx={{ p: 2 }}>
-            <Box component="form" onSubmit={handleSearchSubmit} sx={{ display: "flex", gap: 1 }}>
+            <Box
+              component="form"
+              onSubmit={handleSearchSubmit}
+              sx={{ display: "flex", gap: 1 }}
+            >
               <TextField
                 label="Search"
                 value={searchInput}
@@ -212,10 +268,21 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
                 placeholder="Guest, room, notes..."
                 fullWidth
               />
-              <Button type="submit" variant="contained" startIcon={<SearchIcon />} disabled={loading}>
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<SearchIcon />}
+                disabled={loading}
+              >
                 Search
               </Button>
-              <Button type="button" variant="outlined" startIcon={<RestartAltIcon />} onClick={handleReset} disabled={loading}>
+              <Button
+                type="button"
+                variant="outlined"
+                startIcon={<RestartAltIcon />}
+                onClick={handleReset}
+                disabled={loading}
+              >
                 Reset
               </Button>
             </Box>
@@ -225,15 +292,23 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
           {error && <Alert severity="error">{error}</Alert>}
 
           <TableContainer component={Paper} elevation={1}>
-            <Table sx={{ minWidth: 980 }}>
+            <Table
+              sx={{
+                minWidth: hideFinancials ? 860 : showStayNights ? 1060 : 950,
+              }}
+            >
               <TableHead>
                 <TableRow sx={{ bgcolor: "grey.50" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Guest</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Contact</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Details</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rooms</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Stay</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Financials</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Status</TableCell>
+                  {showStayNights && (
+                    <TableCell sx={{ fontWeight: 800 }}>Nights</TableCell>
+                  )}
+                  {!hideFinancials && (
+                    <TableCell sx={{ fontWeight: 800 }}>Financials</TableCell>
+                  )}
                   <TableCell sx={{ fontWeight: 800 }}>Action</TableCell>
                 </TableRow>
               </TableHead>
@@ -241,36 +316,72 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
                 {reservations.map((reservation) => {
                   const financials = getReservationFinancials(reservation);
                   const customer = reservation.customers || {};
+                  const guests = guestCountSummary(reservation);
 
                   return (
-                    <TableRow key={reservation.id} hover sx={{ "& td": { py: 2, verticalAlign: "top" } }}>
-                      <TableCell sx={{ minWidth: 180 }}>
-                        <Typography sx={{ fontWeight: 800 }}>{guestName(customer)}</Typography>
+                    <TableRow
+                      key={reservation.id}
+                      hover
+                      sx={{ "& td": { py: 2, verticalAlign: "top" } }}
+                    >
+                      <TableCell sx={{ minWidth: 260 }}>
+                        <Typography sx={{ fontWeight: 800 }}>
+                          {guestName(customer)}
+                        </Typography>
+                        <Typography sx={{ fontSize: 14 }}>
+                          {customer.email || "No email"}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
+                          {customer.contact_number || "No contact number"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 170 }}>
+                        <Typography>{guests.total}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {guests.breakdown}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block" }}
+                        >
                           Ref {shortReference(reservation.id)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ minWidth: 220 }}>
-                        <Typography sx={{ fontSize: 14 }}>{customer.email}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {customer.contact_number}
+                      <TableCell sx={{ minWidth: 130 }}>
+                        <Typography>
+                          {roomSummary(reservation.reserved_rooms)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ minWidth: 220 }}>
-                        <Typography>{roomSummary(reservation.reserved_rooms)}</Typography>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        {formatDateRange(reservation)}
                       </TableCell>
-                      <TableCell sx={{ minWidth: 180 }}>{formatDateRange(reservation)}</TableCell>
-                      <TableCell sx={{ minWidth: 150 }}>
-                        <Typography sx={{ fontWeight: 800 }}>{formatMoney(financials.total)}</Typography>
-                        <Typography variant="caption" color={financials.balance > 0 ? "error" : "success.main"}>
-                          Balance {formatMoney(financials.balance)}
-                        </Typography>
-                      </TableCell>
+                      {showStayNights && (
+                        <TableCell sx={{ minWidth: 110 }}>
+                          {stayNightSummary(reservation)}
+                        </TableCell>
+                      )}
+                      {!hideFinancials && (
+                        <TableCell sx={{ minWidth: 150 }}>
+                          <Typography sx={{ fontWeight: 800 }}>
+                            {formatMoney(financials.total)}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color={
+                              financials.balance > 0 ? "error" : "success.main"
+                            }
+                          >
+                            Balance {formatMoney(financials.balance)}
+                          </Typography>
+                        </TableCell>
+                      )}
                       <TableCell>
-                        <Chip label={reservation.status} color={statusColors[reservation.status] || "default"} size="small" />
-                      </TableCell>
-                      <TableCell>
-                        <Button size="small" variant="outlined" onClick={() => setSelectedReservation(reservation)}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setSelectedReservation(reservation)}
+                        >
                           View
                         </Button>
                       </TableCell>
@@ -279,9 +390,18 @@ export default function ReservationQueuePage({ title, status, emptyMessage, tabs
                 })}
                 {!loading && reservations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell
+                      colSpan={
+                        4 +
+                        (showStayNights ? 1 : 0) +
+                        (hideFinancials ? 0 : 1) +
+                        1
+                      }
+                    >
                       <Typography align="center" sx={{ py: 4 }}>
-                        {activeTab?.emptyMessage || emptyMessage || "No reservations found."}
+                        {activeTab?.emptyMessage ||
+                          emptyMessage ||
+                          "No reservations found."}
                       </Typography>
                     </TableCell>
                   </TableRow>

@@ -6,6 +6,8 @@ export default function CheckOutPage() {
       title="Checked out reservations"
       status="checked_out"
       emptyMessage="No checked out reservations."
+      hideTitleCount
+      showStayNights
     />
   );
 }
