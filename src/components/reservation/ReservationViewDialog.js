@@ -25,8 +25,10 @@ import {
   cancelReservation,
   deleteReservationPayment,
   getAdminReservationById,
+  getRoomAvailability,
   getReservationFinancials,
   updateReservationPayment,
+  updateReservationRooms,
   updateReservationStatus,
 } from "../../services/resortService";
 import {
@@ -134,6 +136,11 @@ export default function ReservationViewDialog({
   const [cancelForm, setCancelForm] = useState(emptyCancelForm);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutSaving, setCheckoutSaving] = useState(false);
+  const [roomEditorOpen, setRoomEditorOpen] = useState(false);
+  const [roomEditorLoading, setRoomEditorLoading] = useState(false);
+  const [roomEditorSaving, setRoomEditorSaving] = useState(false);
+  const [roomOptions, setRoomOptions] = useState([]);
+  const [roomSelections, setRoomSelections] = useState([]);
 
   useEffect(() => {
     setCurrentReservation(reservation);
@@ -165,6 +172,9 @@ export default function ReservationViewDialog({
     currentReservation &&
     !["checked_out", "cancelled"].includes(currentReservation.status);
   const canModifyPayments = !["checked_out", "cancelled"].includes(
+    currentReservation?.status,
+  );
+  const canModifyRooms = ["pending", "confirmed", "checked_in"].includes(
     currentReservation?.status,
   );
   const paymentGridColumns = canModifyPayments
@@ -398,6 +408,112 @@ export default function ReservationViewDialog({
       setError(err.message || "Unable to check out guest.");
     } finally {
       setCheckoutSaving(false);
+    }
+  };
+
+  const openRoomEditor = async () => {
+    if (!currentReservation) return;
+
+    const currentRoomOptions = rooms.map((room) => ({
+      id: room.room_id,
+      name: room.rooms?.name || "Room",
+      rate: room.rooms?.rate || 0,
+      available_quantity: Number(room.reserved_quantity || 1),
+    }));
+
+    setRoomEditorOpen(true);
+    setRoomEditorLoading(true);
+    setError("");
+    setRoomOptions(currentRoomOptions);
+    setRoomSelections(
+      rooms.map((room) => ({
+        key: room.id,
+        roomId: room.room_id,
+        roomQuantity: Number(room.reserved_quantity || 1),
+      })),
+    );
+
+    try {
+      const availability = await getRoomAvailability({
+        checkin: currentReservation.checkin,
+        checkout: currentReservation.checkout,
+        excludeReservationId: currentReservation.id,
+      });
+      setRoomOptions([
+        ...availability,
+        ...currentRoomOptions.filter(
+          (currentRoom) =>
+            !availability.some((room) => room.id === currentRoom.id),
+        ),
+      ]);
+    } catch (err) {
+      setError(err.message || "Unable to load room availability.");
+    } finally {
+      setRoomEditorLoading(false);
+    }
+  };
+
+  const closeRoomEditor = () => {
+    if (roomEditorSaving) return;
+    setRoomEditorOpen(false);
+    setRoomSelections([]);
+    setRoomOptions([]);
+  };
+
+  const handleRoomSelectionChange = (key, field, value) => {
+    setRoomSelections((current) =>
+      current.map((selection) =>
+        selection.key === key
+          ? {
+              ...selection,
+              [field]:
+                field === "roomQuantity"
+                  ? Math.max(Number(value), 1)
+                  : value,
+            }
+          : selection,
+      ),
+    );
+  };
+
+  const handleAddRoomSelection = () => {
+    const usedRoomIds = new Set(roomSelections.map((selection) => selection.roomId));
+    const nextRoom = roomOptions.find((room) => !usedRoomIds.has(room.id));
+    if (!nextRoom) return;
+
+    setRoomSelections((current) => [
+      ...current,
+      {
+        key: crypto.randomUUID(),
+        roomId: nextRoom.id,
+        roomQuantity: 1,
+      },
+    ]);
+  };
+
+  const handleRemoveRoomSelection = (key) => {
+    setRoomSelections((current) =>
+      current.length > 1
+        ? current.filter((selection) => selection.key !== key)
+        : current,
+    );
+  };
+
+  const handleSaveRooms = async () => {
+    if (!currentReservation) return;
+    setRoomEditorSaving(true);
+    setError("");
+
+    try {
+      await updateReservationRooms(currentReservation, roomSelections);
+      await reloadReservation();
+      setRoomEditorOpen(false);
+      setRoomSelections([]);
+      setRoomOptions([]);
+    } catch (err) {
+      setError(err.message || "Unable to update reservation rooms.");
+    } finally {
+      setRoomEditorSaving(false);
     }
   };
 
@@ -696,9 +812,26 @@ export default function ReservationViewDialog({
                   <Divider />
 
                   <Box>
-                    <Typography sx={{ fontWeight: 700, mb: 1.5 }}>
-                      Rooms
-                    </Typography>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      justifyContent="space-between"
+                      sx={{ mb: 1.5 }}
+                    >
+                      <Typography sx={{ fontWeight: 700 }}>
+                        Rooms
+                      </Typography>
+                      {canModifyRooms && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={openRoomEditor}
+                        >
+                          Change rooms
+                        </Button>
+                      )}
+                    </Stack>
                     {rooms.length ? (
                       <Box
                         sx={{
@@ -1050,6 +1183,137 @@ export default function ReservationViewDialog({
             ) : null}
           </DialogActions>
         )}
+      </Dialog>
+
+      <Dialog
+        open={roomEditorOpen}
+        onClose={closeRoomEditor}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Change rooms
+          <DialogCloseButton
+            onClick={closeRoomEditor}
+            disabled={roomEditorSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {roomEditorLoading && (
+              <Typography color="text.secondary">
+                Loading room availability...
+              </Typography>
+            )}
+            {roomSelections.map((selection) => {
+              const selectedRoom = roomOptions.find(
+                (room) => room.id === selection.roomId,
+              );
+              const selectedRoomIds = new Set(
+                roomSelections
+                  .filter((roomSelection) => roomSelection.key !== selection.key)
+                  .map((roomSelection) => roomSelection.roomId),
+              );
+
+              return (
+                <Paper key={selection.key} variant="outlined" sx={{ p: 1.5 }}>
+                  <Stack spacing={1.5}>
+                    <TextField
+                      select
+                      label="Room"
+                      value={selection.roomId}
+                      onChange={(event) =>
+                        handleRoomSelectionChange(
+                          selection.key,
+                          "roomId",
+                          event.target.value,
+                        )
+                      }
+                      disabled={roomEditorLoading || roomEditorSaving}
+                      fullWidth
+                    >
+                      {roomOptions.map((room) => (
+                        <MenuItem
+                          key={room.id}
+                          value={room.id}
+                          disabled={selectedRoomIds.has(room.id)}
+                        >
+                          {room.name} / {room.available_quantity} available /{" "}
+                          {formatMoney(room.rate)}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={1}
+                      alignItems={{ xs: "stretch", sm: "flex-start" }}
+                    >
+                      <TextField
+                        label="Rooms"
+                        type="number"
+                        value={selection.roomQuantity}
+                        onChange={(event) =>
+                          handleRoomSelectionChange(
+                            selection.key,
+                            "roomQuantity",
+                            event.target.value,
+                          )
+                        }
+                        inputProps={{
+                          min: 1,
+                          max: selectedRoom?.available_quantity || 1,
+                        }}
+                        helperText={
+                          selectedRoom
+                            ? `${selectedRoom.available_quantity} available`
+                            : "Choose a room"
+                        }
+                        disabled={roomEditorLoading || roomEditorSaving}
+                        sx={{ width: { sm: 150 } }}
+                      />
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        onClick={() => handleRemoveRoomSelection(selection.key)}
+                        disabled={
+                          roomEditorSaving ||
+                          roomEditorLoading ||
+                          roomSelections.length <= 1
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              );
+            })}
+            <Button
+              variant="outlined"
+              onClick={handleAddRoomSelection}
+              disabled={
+                roomEditorLoading ||
+                roomEditorSaving ||
+                roomSelections.length >= roomOptions.length
+              }
+              sx={{ alignSelf: "flex-start" }}
+            >
+              Add another room
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeRoomEditor} disabled={roomEditorSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveRooms}
+            disabled={roomEditorSaving || roomEditorLoading}
+          >
+            {roomEditorSaving ? "Saving..." : "Save rooms"}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog

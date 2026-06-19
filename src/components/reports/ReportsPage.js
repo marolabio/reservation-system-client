@@ -36,9 +36,8 @@ function getDefaultCustomDates() {
 
 function roomSummary(rooms = []) {
   const totalRooms = rooms.reduce((sum, room) => sum + Number(room.reserved_quantity || 0), 0);
-  const names = [...new Set(rooms.map((room) => room.rooms?.name).filter(Boolean))];
   if (!totalRooms) return "No rooms";
-  return `${totalRooms} ${totalRooms === 1 ? "room" : "rooms"}${names.length ? ` / ${names.join(", ")}` : ""}`;
+  return `${totalRooms} ${totalRooms === 1 ? "room" : "rooms"}`;
 }
 
 export default function ReportsPage() {
@@ -259,10 +258,11 @@ export default function ReportsPage() {
                 ))}
               </Box>
             </Box>
-            <Table sx={{ minWidth: 1050 }}>
+            <Table sx={{ minWidth: financials.refunds > 0 ? 1180 : 1080 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: "action.hover" }}>
-                  <TableCell sx={{ fontWeight: 800 }}>Guest</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Reference</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Customer name</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rooms</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Stay</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Total</TableCell>
@@ -279,21 +279,19 @@ export default function ReportsPage() {
                 {reservations.map((reservation) => {
                   const financial = getReservationFinancials(reservation);
                   return (
-                    <TableRow key={reservation.id} hover sx={{ "& td": { py: 2, verticalAlign: "top" } }}>
+                    <TableRow key={reservation.id} hover sx={{ "& td": { py: 1.5, verticalAlign: "middle" } }}>
+                      <TableCell>{shortReference(reservation.id)}</TableCell>
                       <TableCell sx={{ minWidth: 180 }}>
-                        <Typography sx={{ fontWeight: 800 }}>{guestName(reservation.customers)}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Ref {shortReference(reservation.id)}
-                        </Typography>
+                        {guestName(reservation.customers)}
                       </TableCell>
                       <TableCell sx={{ minWidth: 220 }}>{roomSummary(reservation.reserved_rooms)}</TableCell>
                       <TableCell sx={{ minWidth: 170 }}>{formatDateRange(reservation)}</TableCell>
-                      <TableCell sx={{ fontWeight: 800 }}>{formatMoney(financial.total)}</TableCell>
+                      <TableCell>{formatMoney(financial.total)}</TableCell>
                       <TableCell>{formatMoney(financial.paid)}</TableCell>
                       {financials.refunds > 0 && (
                         <TableCell>{formatMoney(financial.refunded)}</TableCell>
                       )}
-                      <TableCell sx={{ color: financial.balance > 0 ? "error.main" : "success.main", fontWeight: 800 }}>
+                      <TableCell sx={{ color: financial.balance > 0 ? "error.main" : "success.main" }}>
                         {formatMoney(financial.balance)}
                       </TableCell>
                       <TableCell>
@@ -309,7 +307,7 @@ export default function ReportsPage() {
                 })}
                 {!loading && reservations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={financials.refunds > 0 ? 9 : 8}>
+                    <TableCell colSpan={financials.refunds > 0 ? 10 : 9}>
                       <Typography align="center" sx={{ py: 4 }}>
                         No reservations found for this date range.
                       </Typography>

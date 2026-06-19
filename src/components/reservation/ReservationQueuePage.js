@@ -47,6 +47,14 @@ function roomSummary(rooms = []) {
   return `${totalRooms} ${totalRooms === 1 ? "room" : "rooms"}`;
 }
 
+function guestCount(reservation) {
+  const adults = Number(reservation.adult || 0);
+  const children = Number(reservation.children || 0);
+  const total = adults + children;
+
+  return `${total} ${total === 1 ? "guest" : "guests"}`;
+}
+
 function stayNightSummary(reservation) {
   const nights = Math.max(
     Math.ceil(
@@ -57,17 +65,6 @@ function stayNightSummary(reservation) {
   );
 
   return `${nights} ${nights === 1 ? "night" : "nights"}`;
-}
-
-function guestCountSummary(reservation) {
-  const adults = Number(reservation.adult || 0);
-  const children = Number(reservation.children || 0);
-  const total = adults + children;
-
-  return {
-    total: `${total} ${total === 1 ? "guest" : "guests"}`,
-    breakdown: `${adults} adult${adults === 1 ? "" : "s"}, ${children} child${children === 1 ? "" : "ren"}`,
-  };
 }
 
 function countFromStats(stats, status) {
@@ -297,20 +294,25 @@ export default function ReservationQueuePage({
             </Box>
             <Table
               sx={{
-                minWidth: hideFinancials ? 860 : showStayNights ? 1060 : 950,
+                minWidth: hideFinancials ? 980 : showStayNights ? 1260 : 1160,
               }}
             >
               <TableHead>
                 <TableRow sx={{ bgcolor: "action.hover" }}>
-                  <TableCell sx={{ fontWeight: 800 }}>Guest</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Details</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Reference</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Customer name</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Contact number</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Guests</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rooms</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Stay</TableCell>
                   {showStayNights && (
                     <TableCell sx={{ fontWeight: 800 }}>Nights</TableCell>
                   )}
                   {!hideFinancials && (
-                    <TableCell sx={{ fontWeight: 800 }}>Financials</TableCell>
+                    <>
+                      <TableCell sx={{ fontWeight: 800 }}>Total</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Balance</TableCell>
+                    </>
                   )}
                   <TableCell sx={{ fontWeight: 800 }}>Action</TableCell>
                 </TableRow>
@@ -319,42 +321,23 @@ export default function ReservationQueuePage({
                 {reservations.map((reservation) => {
                   const financials = getReservationFinancials(reservation);
                   const customer = reservation.customers || {};
-                  const guests = guestCountSummary(reservation);
 
                   return (
                     <TableRow
                       key={reservation.id}
                       hover
-                      sx={{ "& td": { py: 2, verticalAlign: "top" } }}
+                      sx={{ "& td": { py: 1.5, verticalAlign: "middle" } }}
                     >
-                      <TableCell sx={{ minWidth: 260 }}>
-                        <Typography sx={{ fontWeight: 800 }}>
-                          {guestName(customer)}
-                        </Typography>
-                        <Typography sx={{ fontSize: 14 }}>
-                          {customer.email || "No email"}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {customer.contact_number || "No contact number"}
-                        </Typography>
+                      <TableCell>{shortReference(reservation.id)}</TableCell>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        {guestName(customer)}
                       </TableCell>
-                      <TableCell sx={{ minWidth: 170 }}>
-                        <Typography>{guests.total}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {guests.breakdown}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ display: "block" }}
-                        >
-                          Ref {shortReference(reservation.id)}
-                        </Typography>
+                      <TableCell sx={{ minWidth: 150 }}>
+                        {customer.contact_number || "No contact number"}
                       </TableCell>
+                      <TableCell>{guestCount(reservation)}</TableCell>
                       <TableCell sx={{ minWidth: 130 }}>
-                        <Typography>
-                          {roomSummary(reservation.reserved_rooms)}
-                        </Typography>
+                        {roomSummary(reservation.reserved_rooms)}
                       </TableCell>
                       <TableCell sx={{ minWidth: 180 }}>
                         {formatDateRange(reservation)}
@@ -365,19 +348,19 @@ export default function ReservationQueuePage({
                         </TableCell>
                       )}
                       {!hideFinancials && (
-                        <TableCell sx={{ minWidth: 150 }}>
-                          <Typography sx={{ fontWeight: 800 }}>
-                            {formatMoney(financials.total)}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color={
-                              financials.balance > 0 ? "error" : "success.main"
-                            }
+                        <>
+                          <TableCell>{formatMoney(financials.total)}</TableCell>
+                          <TableCell
+                            sx={{
+                              color:
+                                financials.balance > 0
+                                  ? "error.main"
+                                  : "success.main",
+                            }}
                           >
-                            Balance {formatMoney(financials.balance)}
-                          </Typography>
-                        </TableCell>
+                            {formatMoney(financials.balance)}
+                          </TableCell>
+                        </>
                       )}
                       <TableCell>
                         <Button
@@ -396,8 +379,9 @@ export default function ReservationQueuePage({
                     <TableCell
                       colSpan={
                         4 +
+                        2 +
                         (showStayNights ? 1 : 0) +
-                        (hideFinancials ? 0 : 1) +
+                        (hideFinancials ? 0 : 2) +
                         1
                       }
                     >
