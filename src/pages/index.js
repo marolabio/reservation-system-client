@@ -197,6 +197,9 @@ export default function BookingPage() {
         <title>Hotel Reservations</title>
       </Head>
       <TopNav />
+      <Box sx={{ height: 4, position: "sticky", top: 0, zIndex: (theme) => theme.zIndex.appBar }}>
+        {loading && <LinearProgress />}
+      </Box>
 
       <Box
         sx={{
@@ -205,28 +208,28 @@ export default function BookingPage() {
             "linear-gradient(rgba(6, 44, 39, 0.68), rgba(6, 44, 39, 0.62)), url(https://images.unsplash.com/photo-1540541338287-41700207dee6)",
           backgroundPosition: "center",
           backgroundSize: "cover",
-          pb: { xs: 11, md: 13 },
-          pt: { xs: 4, md: 6 },
+          pb: { xs: 8, md: 10 },
+          pt: { xs: 3, md: 4.5 },
         }}
       >
-        <Container maxWidth="xl">
-          <Box sx={{ maxWidth: 720 }}>
-            <Typography variant="h2" component="h1" sx={{ fontWeight: 800, fontSize: { xs: 38, md: 64 }, mb: 2 }}>
+        <Container maxWidth="lg">
+          <Box sx={{ maxWidth: 620 }}>
+            <Typography variant="h2" component="h1" sx={{ fontWeight: 800, fontSize: { xs: 32, md: 48 }, mb: 1.5 }}>
               Book your stay
             </Typography>
-            <Typography variant="h6" sx={{ color: "rgba(255,255,255,0.88)", lineHeight: 1.6 }}>
+            <Typography sx={{ color: "rgba(255,255,255,0.88)", fontSize: { xs: 16, md: 18 }, lineHeight: 1.55 }}>
               Dates, rooms, guest details.
             </Typography>
           </Box>
         </Container>
       </Box>
 
-      <Container maxWidth="xl">
+      <Container maxWidth="lg">
         <Paper
           elevation={2}
           sx={{
-            mt: { xs: -7, md: -6 },
-            p: { xs: 2, md: 3 },
+            mt: { xs: -5, md: -4.5 },
+            p: { xs: 1.5, md: 2 },
             position: "relative",
             zIndex: 1,
           }}
@@ -288,21 +291,19 @@ export default function BookingPage() {
           </Box>
         </Paper>
 
-        {loading && <LinearProgress sx={{ mt: 2, borderRadius: 8 }} />}
-
         <Box
           sx={{
             display: "grid",
-            gap: 3,
-            gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 380px" },
+            gap: { xs: 2.5, md: 3 },
+            gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 340px" },
             alignItems: "start",
-            py: { xs: 4, md: 5 },
+            py: { xs: 3, md: 4 },
           }}
         >
           <Box>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
                   Available rooms
                 </Typography>
             <Typography color="text.secondary">
@@ -311,13 +312,13 @@ export default function BookingPage() {
           </Box>
         </Stack>
 
-            <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
+            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
               {availableRooms.map((room) => (
                 <Card key={room.id} sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                  <CardMedia component="img" height="210" image={getRoomImage(room.image)} alt={room.name} />
-                  <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
+                  <CardMedia component="img" height="170" image={getRoomImage(room.image)} alt={room.name} />
+                  <CardContent sx={{ flexGrow: 1, p: 2 }}>
                     <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="start" sx={{ mb: 1 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 17 }}>
                         {room.name}
                       </Typography>
                       <Chip label={`${room.available_quantity} left`} color="primary" size="small" />
@@ -325,7 +326,7 @@ export default function BookingPage() {
                     <Typography color="text.secondary" sx={{ mb: 1 }}>
                       Good for {room.occupancy} guests
                     </Typography>
-                    <Typography sx={{ mb: 2 }}>{room.description}</Typography>
+                    <Typography sx={{ mb: 1.5 }}>{room.description}</Typography>
                     {(room.amenities || []).length > 0 && (
                       <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
                         {room.amenities.map((amenity) => (
@@ -333,11 +334,11 @@ export default function BookingPage() {
                         ))}
                       </Stack>
                     )}
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    <Typography sx={{ fontWeight: 800, fontSize: 17 }}>
                       PHP {Number(room.rate).toLocaleString()} / night
                     </Typography>
                   </CardContent>
-                  <CardActions sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
+                  <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
                     {(() => {
                       const isSelected = selectedRooms.some((selectedRoom) => selectedRoom.id === room.id);
                       return (
@@ -364,8 +365,8 @@ export default function BookingPage() {
             </Box>
           </Box>
 
-          <Paper sx={{ p: { xs: 2.5, md: 3 }, position: { md: "sticky" }, top: 24 }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
+          <Paper sx={{ p: { xs: 2, md: 2.5 }, position: { md: "sticky" }, top: 24 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
               Reservation details
             </Typography>
             {selectedRooms.length > 0 ? (

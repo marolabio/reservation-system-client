@@ -1,10 +1,8 @@
-import React, { useContext } from "react";
-import { Box, Button, Divider, Stack, Tooltip, Typography } from "@mui/material";
+import React from "react";
+import { Box, Button, Divider, LinearProgress, Stack, Tooltip, Typography } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CategoryIcon from "@mui/icons-material/Category";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
 import HotelIcon from "@mui/icons-material/Hotel";
-import LightModeIcon from "@mui/icons-material/LightMode";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AddBusinessIcon from "@mui/icons-material/AddBusiness";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
@@ -12,7 +10,6 @@ import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import CancelIcon from "@mui/icons-material/Cancel";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import { useRouter } from "next/router";
-import { ColorModeContext } from "../../utils/colorMode";
 
 const navSections = [
   {
@@ -40,10 +37,8 @@ const navSections = [
   },
 ];
 
-export default function AdminLayout({ children, onSignOut }) {
+export default function AdminLayout({ children, loading = false, onSignOut }) {
   const router = useRouter();
-  const { mode, toggleColorMode } = useContext(ColorModeContext);
-  const ColorModeIcon = mode === "dark" ? LightModeIcon : DarkModeIcon;
 
   return (
     <Box sx={{ bgcolor: "background.default", display: "flex", minHeight: "100vh" }}>
@@ -155,30 +150,6 @@ export default function AdminLayout({ children, onSignOut }) {
         </Stack>
 
         <Box sx={{ p: 1 }}>
-          <Tooltip title={mode === "dark" ? "Use light mode" : "Use dark mode"} placement="right">
-            <Button
-              onClick={toggleColorMode}
-              startIcon={<ColorModeIcon />}
-              sx={{
-                borderRadius: 1,
-                color: "text.primary",
-                justifyContent: { xs: "center", md: "flex-start" },
-                mb: 0.75,
-                minHeight: 44,
-                minWidth: 0,
-                px: { xs: 1, md: 1.5 },
-                textTransform: "none",
-                "& .MuiButton-startIcon": {
-                  m: { xs: 0, md: "0 8px 0 0" },
-                },
-              }}
-              fullWidth
-            >
-              <Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
-                {mode === "dark" ? "Light mode" : "Dark mode"}
-              </Box>
-            </Button>
-          </Tooltip>
           <Tooltip title="Sign out" placement="right">
             <Button
               onClick={onSignOut}
@@ -205,7 +176,19 @@ export default function AdminLayout({ children, onSignOut }) {
         </Box>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0 }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, position: "relative" }}>
+        <Box
+          sx={{
+            height: 4,
+            left: 0,
+            position: "sticky",
+            right: 0,
+            top: 0,
+            zIndex: (theme) => theme.zIndex.appBar,
+          }}
+        >
+          {loading && <LinearProgress />}
+        </Box>
         {children}
       </Box>
     </Box>

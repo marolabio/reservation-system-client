@@ -7,7 +7,6 @@ import {
   Button,
   Chip,
   Container,
-  LinearProgress,
   Paper,
   Stack,
   Table,
@@ -169,7 +168,7 @@ export default function ReportsPage() {
   ];
 
   return (
-    <AdminLayout onSignOut={handleLogout}>
+    <AdminLayout loading={loading} onSignOut={handleLogout}>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
           <Box>
@@ -231,7 +230,6 @@ export default function ReportsPage() {
             </Stack>
           </Paper>
 
-          {loading && <LinearProgress sx={{ borderRadius: 8 }} />}
           {error && <Alert severity="error">{error}</Alert>}
 
           <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" } }}>

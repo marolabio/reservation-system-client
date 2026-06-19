@@ -6,7 +6,6 @@ import {
   Button,
   Chip,
   Container,
-  LinearProgress,
   Paper,
   Stack,
   Tab,
@@ -209,7 +208,7 @@ export default function ReservationQueuePage({
   };
 
   return (
-    <AdminLayout onSignOut={handleLogout}>
+    <AdminLayout loading={loading} onSignOut={handleLogout}>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
           <Box>
@@ -255,17 +254,27 @@ export default function ReservationQueuePage({
             </Paper>
           ) : null}
 
-          <Paper elevation={1} sx={{ p: 2 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+
+          <TableContainer component={Paper} elevation={1}>
             <Box
               component="form"
               onSubmit={handleSearchSubmit}
-              sx={{ display: "flex", gap: 1 }}
+              sx={{
+                alignItems: "center",
+                borderBottom: "1px solid",
+                borderColor: "divider",
+                display: "flex",
+                gap: 1,
+                p: 2,
+              }}
             >
               <TextField
                 label="Search"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Guest, room, notes..."
+                sx={{ maxWidth: { md: 420 } }}
                 fullWidth
               />
               <Button
@@ -286,12 +295,6 @@ export default function ReservationQueuePage({
                 Reset
               </Button>
             </Box>
-          </Paper>
-
-          {loading && <LinearProgress sx={{ borderRadius: 8 }} />}
-          {error && <Alert severity="error">{error}</Alert>}
-
-          <TableContainer component={Paper} elevation={1}>
             <Table
               sx={{
                 minWidth: hideFinancials ? 860 : showStayNights ? 1060 : 950,

@@ -15,10 +15,10 @@ function Content({ children, title, loading }) {
           <LinearProgress />
         ) : (
           <Container
-            maxWidth="xl"
+            maxWidth="lg"
             sx={(theme) => ({
-              paddingTop: theme.spacing(4),
-              paddingBottom: theme.spacing(4),
+              paddingTop: theme.spacing(3),
+              paddingBottom: theme.spacing(3),
             })}
           >
             {children}

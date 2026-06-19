@@ -8,7 +8,6 @@ import {
   Chip,
   Container,
   Divider,
-  LinearProgress,
   MenuItem,
   Paper,
   Snackbar,
@@ -232,7 +231,7 @@ export default function AdminBookingPage() {
   };
 
   return (
-    <AdminLayout onSignOut={handleLogout}>
+    <AdminLayout loading={loading} onSignOut={handleLogout}>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <Box
           sx={{
@@ -319,8 +318,6 @@ export default function AdminBookingPage() {
           </Box>
         </Paper>
 
-        {loading && <LinearProgress sx={{ mb: 2, borderRadius: 8 }} />}
-
         <Box
           sx={{
             display: "grid",
@@ -366,13 +363,21 @@ export default function AdminBookingPage() {
                 {availableRooms.map((room) => (
                   <Box
                     key={room.id}
-                    sx={{ display: "flex", justifyContent: "space-between", p: 2.5 }}
+                    sx={{
+                      alignItems: { xs: "stretch", sm: "center" },
+                      display: "grid",
+                      gap: 2,
+                      gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) auto" },
+                      p: 2,
+                    }}
                   >
                     <Box sx={{ minWidth: 0 }}>
                       <Stack
                         direction="row"
-                        spacing={1}
+                        spacing={0.75}
                         alignItems="center"
+                        useFlexGap
+                        flexWrap="wrap"
                         sx={{ mb: 0.5 }}
                       >
                         <Typography sx={{ fontWeight: 800 }}>
@@ -385,32 +390,33 @@ export default function AdminBookingPage() {
                         />
                       </Stack>
                       <Box
-                        component="ul"
                         sx={{
-                          color: "text.secondary",
                           display: "grid",
-                          gap: 0.5,
+                          gap: 1,
                           gridTemplateColumns: {
                             xs: "1fr",
                             sm: "repeat(2, minmax(0, 1fr))",
                           },
-                          listStylePosition: "inside",
-                          m: 0,
-                          p: 0,
+                          maxWidth: 520,
                         }}
                       >
-                        <Typography component="li">
-                          Capacity: {room.occupancy} guests
-                        </Typography>
-                        <Typography component="li">
-                          Rate: PHP {Number(room.rate).toLocaleString()} / night
-                        </Typography>
+                        <Box>
+                          <Typography color="text.secondary" variant="caption">
+                            Capacity
+                          </Typography>
+                          <Typography>
+                            {room.occupancy} guests
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography color="text.secondary" variant="caption">
+                            Rate
+                          </Typography>
+                          <Typography>
+                            PHP {Number(room.rate).toLocaleString()} / night
+                          </Typography>
+                        </Box>
                       </Box>
-                      {room.description && (
-                        <Typography color="text.secondary" sx={{ mt: 1 }}>
-                          {room.description}
-                        </Typography>
-                      )}
                       {(room.amenities || []).length > 0 && (
                         <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
                           {room.amenities.map((amenity) => (
@@ -426,7 +432,7 @@ export default function AdminBookingPage() {
                       variant={isSelected ? "contained" : "outlined"}
                       onClick={() => handleAddRoom(room)}
                       disabled={isSelected}
-                      sx={{ minWidth: 130 }}
+                      sx={{ alignSelf: { sm: "center" }, minWidth: 112 }}
                     >
                       {isSelected ? "Added" : "Add room"}
                     </Button>

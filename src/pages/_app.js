@@ -3,6 +3,7 @@ import NextApp from "next/app";
 import { Provider } from "react-redux";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import Alert from "../components/layout/Alert";
+import FloatingColorModeButton from "../components/layout/FloatingColorModeButton";
 import store from "../store";
 import { ColorModeContext } from "../utils/colorMode";
 import "../App.css";
@@ -42,11 +43,40 @@ function buildTheme(mode) {
       borderRadius: 8,
     },
     typography: {
+      fontSize: 13,
       fontFamily:
         'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      h1: {
+        fontSize: "2.75rem",
+      },
+      h2: {
+        fontSize: "2.25rem",
+      },
+      h3: {
+        fontSize: "1.9rem",
+      },
+      h4: {
+        fontSize: "1.55rem",
+      },
+      h5: {
+        fontSize: "1.2rem",
+      },
+      h6: {
+        fontSize: "1rem",
+      },
+      body1: {
+        fontSize: "0.875rem",
+      },
+      body2: {
+        fontSize: "0.8rem",
+      },
       button: {
+        fontSize: "0.8125rem",
         textTransform: "none",
         fontWeight: 700,
+      },
+      caption: {
+        fontSize: "0.72rem",
       },
     },
     components: {
@@ -58,6 +88,56 @@ function buildTheme(mode) {
       MuiButton: {
         defaultProps: {
           disableElevation: true,
+          size: "small",
+        },
+      },
+      MuiInputBase: {
+        styleOverrides: {
+          root: {
+            fontSize: "0.875rem",
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            fontSize: "0.8125rem",
+          },
+        },
+      },
+      MuiFormHelperText: {
+        styleOverrides: {
+          root: {
+            fontSize: "0.72rem",
+          },
+        },
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          root: {
+            fontSize: "0.8125rem",
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          label: {
+            fontSize: "0.72rem",
+          },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: {
+            fontSize: "0.8125rem",
+          },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            fontSize: "0.875rem",
+          },
         },
       },
     },
@@ -100,6 +180,7 @@ export default function App({ Component, pageProps, initialColorMode = "light" }
           <CssBaseline />
           <Alert />
           <Component {...pageProps} />
+          <FloatingColorModeButton />
         </ThemeProvider>
       </ColorModeContext.Provider>
     </Provider>

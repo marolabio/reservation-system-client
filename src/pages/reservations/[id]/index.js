@@ -13,7 +13,6 @@ import {
   DialogTitle,
   Divider,
   IconButton,
-  LinearProgress,
   MenuItem,
   Paper,
   Stack,
@@ -344,14 +343,13 @@ export default function ReservationDetailPage() {
   };
 
   return (
-    <AdminLayout onSignOut={handleLogout}>
+    <AdminLayout loading={loading} onSignOut={handleLogout}>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
           <Button onClick={handleBack} sx={{ alignSelf: "flex-start" }}>
             Back
           </Button>
 
-          {loading && <LinearProgress sx={{ borderRadius: 8 }} />}
           {error && <Alert severity="error">{error}</Alert>}
 
           {reservation && (

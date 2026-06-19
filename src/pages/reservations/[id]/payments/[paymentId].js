@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Alert, Box, Button, Container, LinearProgress, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Container, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import AdminLayout from "../../../../components/layout/AdminLayout";
 import supabase from "../../../../utils/supabase";
 import {
@@ -118,13 +118,12 @@ export default function EditReservationPaymentPage() {
   };
 
   return (
-    <AdminLayout onSignOut={handleLogout}>
+    <AdminLayout loading={loading} onSignOut={handleLogout}>
       <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
           <Button component={Link} href={reservation ? `/reservations/${reservation.id}` : "/bookings"} sx={{ alignSelf: "flex-start" }}>
             Back
           </Button>
-          {loading && <LinearProgress sx={{ borderRadius: 8 }} />}
           {error && <Alert severity="error">{error}</Alert>}
           {reservation && payment && (
             <Paper elevation={1} sx={{ p: { xs: 2.5, md: 3 } }}>

@@ -10,7 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  LinearProgress,
   Paper,
   Snackbar,
   Stack,
@@ -140,7 +139,7 @@ export default function AmenitiesPage() {
   };
 
   return (
-    <AdminLayout onSignOut={handleLogout}>
+    <AdminLayout loading={loading} onSignOut={handleLogout}>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
@@ -148,7 +147,6 @@ export default function AmenitiesPage() {
           </Typography>
         </Box>
 
-        {loading && <LinearProgress sx={{ mb: 2, borderRadius: 8 }} />}
         {error && (
           <Typography color="error" sx={{ mb: 2 }}>
             {error}
