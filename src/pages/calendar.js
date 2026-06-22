@@ -70,6 +70,7 @@ export default function CalendarPage() {
   });
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedReservation, setSelectedReservation] = useState(null);
+  const [activeBookingFilter, setActiveBookingFilter] = useState("pending");
 
   async function loadReservations() {
     setLoading(true);
@@ -127,14 +128,22 @@ export default function CalendarPage() {
     return days;
   }, [currentMonth]);
 
+  const filteredReservations = useMemo(
+    () =>
+      reservations.filter(
+        (reservation) => reservation.status === activeBookingFilter,
+      ),
+    [activeBookingFilter, reservations],
+  );
+
   const bookingsByDate = useMemo(() => {
-    return reservations.reduce((map, reservation) => {
+    return filteredReservations.reduce((map, reservation) => {
       bookingNights(reservation).forEach((date) => {
         map[date] = [...(map[date] || []), reservation];
       });
       return map;
     }, {});
-  }, [reservations]);
+  }, [filteredReservations]);
 
   const selectedDateBookings = selectedDate
     ? bookingsByDate[selectedDate] || []
@@ -145,19 +154,30 @@ export default function CalendarPage() {
     ),
   );
   const monthStats = [
-    ["Bookings this month", monthBookings.length],
-    [
-      "Confirmed",
-      monthBookings.filter((booking) => booking.status === "confirmed").length,
-    ],
-    [
-      "Pending",
-      monthBookings.filter((booking) => booking.status === "pending").length,
-    ],
-    [
-      "Cancelled",
-      monthBookings.filter((booking) => booking.status === "cancelled").length,
-    ],
+    {
+      label: "Pending",
+      value: monthBookings.filter((booking) => booking.status === "pending")
+        .length,
+      filter: "pending",
+    },
+    {
+      label: "Confirmed",
+      value: monthBookings.filter((booking) => booking.status === "confirmed")
+        .length,
+      filter: "confirmed",
+    },
+    {
+      label: "Checked in",
+      value: monthBookings.filter((booking) => booking.status === "checked_in")
+        .length,
+      filter: "checked_in",
+    },
+    {
+      label: "Checked out",
+      value: monthBookings.filter((booking) => booking.status === "checked_out")
+        .length,
+      filter: "checked_out",
+    },
   ];
 
   return (
@@ -219,16 +239,51 @@ export default function CalendarPage() {
             mb: 2,
           }}
         >
-          {monthStats.map(([label, value]) => (
-            <Paper key={label} elevation={1} sx={{ p: { xs: 2, md: 2.5 } }}>
-              <Typography color="text.secondary" sx={{ fontSize: 14 }}>
-                {label}
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
-                {value}
-              </Typography>
-            </Paper>
-          ))}
+          {monthStats.map(({ label, value, filter }) => {
+            const isActive = activeBookingFilter === filter;
+
+            return (
+              <Paper
+                component="button"
+                type="button"
+                aria-pressed={isActive}
+                key={filter}
+                elevation={isActive ? 4 : 1}
+                onClick={() => setActiveBookingFilter(filter)}
+                sx={{
+                  appearance: "none",
+                  bgcolor: isActive ? "primary.main" : "background.paper",
+                  border: "1px solid",
+                  borderColor: isActive ? "primary.main" : "divider",
+                  borderRadius: 1,
+                  color: isActive ? "primary.contrastText" : "text.primary",
+                  cursor: "pointer",
+                  font: "inherit",
+                  p: { xs: 2, md: 2.5 },
+                  textAlign: "left",
+                  transition:
+                    "background-color 150ms ease, box-shadow 150ms ease",
+                  "&:hover": {
+                    bgcolor: isActive ? "primary.dark" : "action.hover",
+                  },
+                  "&:focus-visible": {
+                    outline: "3px solid",
+                    outlineColor: "primary.light",
+                    outlineOffset: 2,
+                  },
+                }}
+              >
+                <Typography
+                  sx={{ fontSize: 14, opacity: isActive ? 0.85 : 0.7 }}
+                >
+                  {label}
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
+                  {value}
+                </Typography>
+              </Paper>
+            );
+          })}
         </Box>
 
         {error && (
