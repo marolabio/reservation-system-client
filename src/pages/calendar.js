@@ -32,6 +32,14 @@ const statusColors = {
 
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function formatStatusLabel(status) {
+  return String(status || "")
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function bookingNights(reservation) {
   const checkin = moment(reservation.checkin);
   const checkout = moment(reservation.checkout);
@@ -155,25 +163,25 @@ export default function CalendarPage() {
   );
   const monthStats = [
     {
-      label: "Pending",
+      label: formatStatusLabel("pending"),
       value: monthBookings.filter((booking) => booking.status === "pending")
         .length,
       filter: "pending",
     },
     {
-      label: "Confirmed",
+      label: formatStatusLabel("confirmed"),
       value: monthBookings.filter((booking) => booking.status === "confirmed")
         .length,
       filter: "confirmed",
     },
     {
-      label: "Checked in",
+      label: formatStatusLabel("checked_in"),
       value: monthBookings.filter((booking) => booking.status === "checked_in")
         .length,
       filter: "checked_in",
     },
     {
-      label: "Checked out",
+      label: formatStatusLabel("checked_out"),
       value: monthBookings.filter((booking) => booking.status === "checked_out")
         .length,
       filter: "checked_out",
@@ -412,25 +420,16 @@ export default function CalendarPage() {
                       >
                         <Typography
                           sx={{
-                            color: "primary.dark",
-                            fontSize: 12,
-                            fontWeight: 800,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {dayBookings.length} booking
-                          {dayBookings.length === 1 ? "" : "s"}
-                        </Typography>
-                        <Typography
-                          sx={{
                             color: "text.secondary",
                             fontSize: 10.5,
                             lineHeight: 1.2,
-                            mt: 0.25,
                           }}
                         >
                           {Object.entries(statusCounts)
-                            .map(([status, count]) => `${count} ${status}`)
+                            .map(
+                              ([status, count]) =>
+                                `${count} ${formatStatusLabel(status)}`,
+                            )
                             .join(" / ")}
                         </Typography>
                       </Box>
@@ -506,7 +505,7 @@ export default function CalendarPage() {
                         </Typography>
                       </Box>
                       <Chip
-                        label={reservation.status}
+                        label={formatStatusLabel(reservation.status)}
                         color={statusColors[reservation.status] || "default"}
                         size="small"
                       />

@@ -9,6 +9,8 @@ import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import CancelIcon from "@mui/icons-material/Cancel";
 import BarChartIcon from "@mui/icons-material/BarChart";
+import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
+import RoomServiceIcon from "@mui/icons-material/RoomService";
 import { useRouter } from "next/router";
 
 const navSections = [
@@ -24,6 +26,7 @@ const navSections = [
     label: "Reports",
     items: [
       { label: "Sales Summary", href: "/sales-summary", icon: BarChartIcon },
+      { label: "Walk-in Sales", href: "/walk-in-sales", icon: PointOfSaleIcon },
       { label: "Checked out", href: "/checkout", icon: LogoutOutlinedIcon },
       { label: "Cancelled", href: "/cancelled", icon: CancelIcon },
     ],
@@ -33,6 +36,7 @@ const navSections = [
     items: [
       { label: "Rooms", href: "/rooms", icon: HotelIcon },
       { label: "Amenities", href: "/amenities", icon: CategoryIcon },
+      { label: "Services", href: "/service-catalog", icon: RoomServiceIcon },
     ],
   },
 ];

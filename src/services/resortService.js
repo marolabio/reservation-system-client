@@ -141,6 +141,73 @@ export async function deleteAmenity(id) {
   if (error) throw error;
 }
 
+function getServiceCatalogPayload(values) {
+  const name = values.name?.trim();
+  const unitPrice = Number(values.unitPrice);
+
+  if (!name) {
+    throw new Error("Service name is required.");
+  }
+
+  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    throw new Error("Enter a valid service price.");
+  }
+
+  return {
+    name,
+    unit_price: unitPrice,
+    status: values.status || "active",
+  };
+}
+
+export async function getServiceCatalog({ activeOnly = false } = {}) {
+  let query = supabase
+    .from("service_catalog")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (activeOnly) {
+    query = query.eq("status", "active");
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createServiceCatalogItem(values) {
+  const { data, error } = await supabase
+    .from("service_catalog")
+    .insert(getServiceCatalogPayload(values))
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateServiceCatalogItem(id, values) {
+  const { data, error } = await supabase
+    .from("service_catalog")
+    .update(getServiceCatalogPayload(values))
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteServiceCatalogItem(id) {
+  const { error } = await supabase
+    .from("service_catalog")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
 export async function getAdminRooms() {
   const { data, error } = await supabase
     .from("rooms")
@@ -355,9 +422,15 @@ export function calculateReservationTotal(reservation) {
     0
   );
 
-  return (reservation?.reserved_rooms || []).reduce((sum, reservedRoom) => {
+  const roomTotal = (reservation?.reserved_rooms || []).reduce((sum, reservedRoom) => {
     return sum + Number(reservedRoom.rooms?.rate || 0) * Number(reservedRoom.reserved_quantity || 0) * nights;
   }, 0);
+
+  const addOnTotal = (reservation?.reservation_addons || []).reduce((sum, addOn) => {
+    return sum + Number(addOn.quantity || 0) * Number(addOn.unit_price || 0);
+  }, 0);
+
+  return roomTotal + addOnTotal;
 }
 
 export function getReservationFinancials(reservation) {
@@ -399,6 +472,7 @@ export async function getAdminReservations() {
         created_at,
         customers(first_name,last_name,email,contact_number),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `
     )
@@ -425,6 +499,7 @@ export async function getAdminReservationById(id) {
         created_at,
         customers(first_name,last_name,email,contact_number),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `
     )
@@ -582,6 +657,7 @@ export async function getAdminReservationsPage({
         created_at,
         customers(first_name,last_name,email,contact_number),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `,
       { count: "exact" }
@@ -634,6 +710,7 @@ export async function updateReservationStatus(id, status) {
         checkout,
         status,
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `
     )
@@ -807,6 +884,79 @@ export async function deleteReservationPayment(reservation, paymentId) {
   if (error) throw error;
 }
 
+function getReservationAddOnPayload(values) {
+  const description = values.description?.trim();
+  const quantity = Number(values.quantity);
+  const unitPrice = Number(values.unitPrice);
+
+  if (!description) {
+    throw new Error("Enter an add-on description.");
+  }
+
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("Enter a valid add-on quantity.");
+  }
+
+  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    throw new Error("Enter a valid add-on price.");
+  }
+
+  return {
+    description,
+    quantity,
+    unit_price: unitPrice,
+  };
+}
+
+export async function addReservationAddOn(reservation, values) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  const { data, error } = await supabase
+    .from("reservation_addons")
+    .insert({
+      reservation_id: reservation.id,
+      ...getReservationAddOnPayload(values),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateReservationAddOn(reservation, addOnId, values) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  const { data, error } = await supabase
+    .from("reservation_addons")
+    .update(getReservationAddOnPayload(values))
+    .eq("id", addOnId)
+    .eq("reservation_id", reservation.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteReservationAddOn(reservation, addOnId) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  const { error } = await supabase
+    .from("reservation_addons")
+    .delete()
+    .eq("id", addOnId)
+    .eq("reservation_id", reservation.id);
+
+  if (error) throw error;
+}
+
 export async function cancelReservation(reservation, values = {}) {
   if (!reservation?.id) {
     throw new Error("Reservation was not found.");
@@ -903,6 +1053,228 @@ export async function updateReservationRooms(reservation, selectedRooms) {
 export async function deleteReservation(id) {
   const { error } = await supabase
     .from("reservations")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+function normalizeWalkInSaleItems(items = []) {
+  const normalizedItems = items
+    .map((item) => ({
+      description: item.description?.trim(),
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unitPrice),
+    }))
+    .filter((item) => item.description);
+
+  if (!normalizedItems.length) {
+    throw new Error("Add at least one walk-in item.");
+  }
+
+  normalizedItems.forEach((item) => {
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      throw new Error("Enter a valid item quantity.");
+    }
+
+    if (!Number.isFinite(item.unit_price) || item.unit_price < 0) {
+      throw new Error("Enter a valid item price.");
+    }
+  });
+
+  return normalizedItems;
+}
+
+export async function createWalkInSale(values) {
+  const items = normalizeWalkInSaleItems(values.items || []);
+  const totalAmount = items.reduce(
+    (sum, item) => sum + item.quantity * item.unit_price,
+    0,
+  );
+  const saleId = crypto.randomUUID();
+
+  const { error: saleError } = await supabase
+    .from("walk_in_sales")
+    .insert({
+      id: saleId,
+      customer_name: values.customerName?.trim() || null,
+      contact_number: values.contactNumber?.trim() || null,
+      payment_method: values.paymentMethod || "cash",
+      total_amount: totalAmount,
+      notes: values.notes?.trim() || null,
+      paid_at: values.paidAt || new Date().toISOString(),
+    });
+
+  if (saleError) throw saleError;
+
+  const { error: itemsError } = await supabase
+    .from("walk_in_sale_items")
+    .insert(items.map((item) => ({ ...item, sale_id: saleId })));
+
+  if (itemsError) {
+    await supabase.from("walk_in_sales").delete().eq("id", saleId);
+    throw itemsError;
+  }
+
+  return getWalkInSaleById(saleId);
+}
+
+export async function updateWalkInSale(id, values) {
+  const items = normalizeWalkInSaleItems(values.items || []);
+  const totalAmount = items.reduce(
+    (sum, item) => sum + item.quantity * item.unit_price,
+    0,
+  );
+
+  const { error: saleError } = await supabase
+    .from("walk_in_sales")
+    .update({
+      customer_name: values.customerName?.trim() || null,
+      contact_number: values.contactNumber?.trim() || null,
+      payment_method: values.paymentMethod || "cash",
+      total_amount: totalAmount,
+      notes: values.notes?.trim() || null,
+    })
+    .eq("id", id);
+
+  if (saleError) throw saleError;
+
+  const { error: deleteError } = await supabase
+    .from("walk_in_sale_items")
+    .delete()
+    .eq("sale_id", id);
+
+  if (deleteError) throw deleteError;
+
+  const { error: itemsError } = await supabase
+    .from("walk_in_sale_items")
+    .insert(items.map((item) => ({ ...item, sale_id: id })));
+
+  if (itemsError) throw itemsError;
+
+  return getWalkInSaleById(id);
+}
+
+export async function getWalkInSaleById(id) {
+  const { data, error } = await supabase
+    .from("walk_in_sales")
+    .select(
+      `
+        id,
+        customer_name,
+        contact_number,
+        payment_method,
+        total_amount,
+        notes,
+        paid_at,
+        created_at,
+        walk_in_sale_items(id,description,quantity,unit_price,created_at)
+      `,
+    )
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getWalkInSalesPage({ page = 0, pageSize = 10 } = {}) {
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabase
+    .from("walk_in_sales")
+    .select(
+      `
+        id,
+        customer_name,
+        contact_number,
+        payment_method,
+        total_amount,
+        notes,
+        paid_at,
+        created_at,
+        walk_in_sale_items(id,description,quantity,unit_price,created_at)
+      `,
+      { count: "exact" },
+    )
+    .order("paid_at", { ascending: false })
+    .range(from, to);
+
+  if (error) throw error;
+  return { sales: data || [], count: count || 0 };
+}
+
+function applyWalkInSalesDateFilters(query, filters = {}) {
+  let start = null;
+  let end = null;
+
+  if (filters.dateFrom && filters.dateTo) {
+    start = new Date(`${filters.dateFrom}T00:00:00`);
+    end = new Date(`${filters.dateTo}T23:59:59.999`);
+  } else if (filters.dateFilter && filters.dateFilter !== "all") {
+    const now = new Date();
+    start = new Date(now);
+    end = new Date(now);
+
+    if (filters.dateFilter === "day") {
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    if (filters.dateFilter === "week") {
+      const day = start.getDay();
+      start.setDate(start.getDate() - day);
+      start.setHours(0, 0, 0, 0);
+      end.setTime(start.getTime());
+      end.setDate(end.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    if (filters.dateFilter === "month") {
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(start.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    if (filters.dateFilter === "year") {
+      start.setMonth(0, 1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(11, 31);
+      end.setHours(23, 59, 59, 999);
+    }
+  }
+
+  if (start && end) {
+    query = query
+      .gte("paid_at", start.toISOString())
+      .lte("paid_at", end.toISOString());
+  }
+
+  return query;
+}
+
+export async function getWalkInSalesSummary(filters = {}) {
+  let query = supabase
+    .from("walk_in_sales")
+    .select("id,total_amount", { count: "exact" });
+
+  query = applyWalkInSalesDateFilters(query, filters);
+
+  const { data, error, count } = await query;
+
+  if (error) throw error;
+
+  return {
+    count: count || 0,
+    total: (data || []).reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0),
+  };
+}
+
+export async function deleteWalkInSale(id) {
+  const { error } = await supabase
+    .from("walk_in_sales")
     .delete()
     .eq("id", id);
 

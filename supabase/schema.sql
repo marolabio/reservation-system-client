@@ -1,7 +1,11 @@
 create extension if not exists pgcrypto;
 
 drop table if exists public.reserved_rooms cascade;
+drop table if exists public.reservation_addons cascade;
 drop table if exists public.reservation_payments cascade;
+drop table if exists public.walk_in_sale_items cascade;
+drop table if exists public.walk_in_sales cascade;
+drop table if exists public.service_catalog cascade;
 drop table if exists public.room_amenities cascade;
 drop table if exists public.amenities cascade;
 drop table if exists public.reservations cascade;
@@ -79,9 +83,50 @@ create table public.reservation_payments (
   created_at timestamptz not null default now()
 );
 
+create table public.reservation_addons (
+  id uuid primary key default gen_random_uuid(),
+  reservation_id uuid not null references public.reservations(id) on delete cascade,
+  description text not null,
+  quantity numeric(10, 2) not null default 1 check (quantity > 0),
+  unit_price numeric(10, 2) not null default 0 check (unit_price >= 0),
+  created_at timestamptz not null default now()
+);
+
+create table public.walk_in_sales (
+  id uuid primary key default gen_random_uuid(),
+  customer_name text,
+  contact_number text,
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'bank_transfer', 'card', 'e_wallet', 'other')),
+  total_amount numeric(10, 2) not null default 0 check (total_amount >= 0),
+  notes text,
+  paid_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table public.walk_in_sale_items (
+  id uuid primary key default gen_random_uuid(),
+  sale_id uuid not null references public.walk_in_sales(id) on delete cascade,
+  description text not null,
+  quantity numeric(10, 2) not null default 1 check (quantity > 0),
+  unit_price numeric(10, 2) not null default 0 check (unit_price >= 0),
+  created_at timestamptz not null default now()
+);
+
+create table public.service_catalog (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  unit_price numeric(10, 2) not null default 0 check (unit_price >= 0),
+  status text not null default 'active' check (status in ('active', 'inactive')),
+  created_at timestamptz not null default now()
+);
+
 create index reserved_rooms_room_id_idx on public.reserved_rooms(room_id);
 create index reserved_rooms_reservation_id_idx on public.reserved_rooms(reservation_id);
 create index reservation_payments_reservation_id_idx on public.reservation_payments(reservation_id);
+create index reservation_addons_reservation_id_idx on public.reservation_addons(reservation_id);
+create index walk_in_sales_paid_at_idx on public.walk_in_sales(paid_at);
+create index walk_in_sale_items_sale_id_idx on public.walk_in_sale_items(sale_id);
+create index service_catalog_status_idx on public.service_catalog(status);
 create index room_amenities_amenity_id_idx on public.room_amenities(amenity_id);
 create index rooms_status_idx on public.rooms(status);
 create index reservations_dates_status_idx on public.reservations(checkin, checkout, status);
@@ -94,6 +139,10 @@ alter table public.room_amenities disable row level security;
 alter table public.reservations disable row level security;
 alter table public.reserved_rooms disable row level security;
 alter table public.reservation_payments disable row level security;
+alter table public.reservation_addons disable row level security;
+alter table public.walk_in_sales disable row level security;
+alter table public.walk_in_sale_items disable row level security;
+alter table public.service_catalog disable row level security;
 
 grant usage on schema public to anon, authenticated;
 
@@ -116,6 +165,10 @@ grant select, insert on public.reserved_rooms to anon, authenticated;
 grant update, delete on public.reserved_rooms to authenticated;
 
 grant select, insert, update, delete on public.reservation_payments to authenticated;
+grant select, insert, update, delete on public.reservation_addons to authenticated;
+grant select, insert, update, delete on public.walk_in_sales to authenticated;
+grant select, insert, update, delete on public.walk_in_sale_items to authenticated;
+grant select, insert, update, delete on public.service_catalog to authenticated;
 
 insert into public.rooms (name, description, occupancy, quantity, rate, status, image)
 values

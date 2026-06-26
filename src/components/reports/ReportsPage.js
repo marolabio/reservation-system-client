@@ -23,7 +23,7 @@ import {
 } from "@mui/material";
 import AdminLayout from "../layout/AdminLayout";
 import supabase from "../../utils/supabase";
-import { getAdminReservationsPage, getReservationDashboardStats, getReservationFinancials } from "../../services/resortService";
+import { getAdminReservationsPage, getReservationDashboardStats, getReservationFinancials, getWalkInSalesSummary } from "../../services/resortService";
 import { formatDateRange, formatMoney, guestName, shortReference, statusColors } from "../../utils/reservationUi";
 import ReservationViewDialog from "../reservation/ReservationViewDialog";
 
@@ -51,6 +51,8 @@ export default function ReportsPage() {
     collected: 0,
     refunds: 0,
     balance: 0,
+    walkInSales: 0,
+    walkInCount: 0,
   });
   const [dateFilter, setDateFilter] = useState("month");
   const [customFrom, setCustomFrom] = useState(defaultDates.from);
@@ -75,7 +77,7 @@ export default function ReportsPage() {
     setLoading(true);
     setError("");
     try {
-      const [nextStats, reservationsData, totalsData] = await Promise.all([
+      const [nextStats, reservationsData, totalsData, walkInSummary] = await Promise.all([
         getReservationDashboardStats(activeDateParams),
         getAdminReservationsPage({
           page,
@@ -89,6 +91,7 @@ export default function ReportsPage() {
           status: "all",
           ...activeDateParams,
         }),
+        getWalkInSalesSummary(activeDateParams),
       ]);
 
       const totals = totalsData.reservations.reduce(
@@ -107,7 +110,14 @@ export default function ReportsPage() {
       setStats(nextStats);
       setReservations(reservationsData.reservations);
       setReservationCount(reservationsData.count);
-      setFinancials(totals);
+      setFinancials({
+        grossSales: totals.grossSales + walkInSummary.total,
+        collected: totals.collected + walkInSummary.total,
+        refunds: totals.refunds,
+        balance: totals.balance,
+        walkInSales: walkInSummary.total,
+        walkInCount: walkInSummary.count,
+      });
     } catch (err) {
       setError(err.message || "Unable to load dashboard.");
     } finally {
@@ -154,6 +164,7 @@ export default function ReportsPage() {
   const moneyCards = [
     { label: "Gross sales", value: formatMoney(financials.grossSales) },
     { label: "Collected", value: formatMoney(financials.collected) },
+    { label: "Walk-in sales", value: formatMoney(financials.walkInSales) },
     financials.refunds > 0 ? { label: "Refunds", value: formatMoney(financials.refunds) } : null,
     { label: "Open balance", value: formatMoney(financials.balance) },
   ].filter(Boolean);
@@ -174,7 +185,7 @@ export default function ReportsPage() {
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
               Sales Summary
             </Typography>
-            <Typography color="text.secondary">Reservation and payment summary by date range.</Typography>
+            <Typography color="text.secondary">Reservation, walk-in sales, and payment summary by date range.</Typography>
           </Box>
 
           <Paper elevation={1} sx={{ p: 2 }}>

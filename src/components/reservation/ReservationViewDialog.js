@@ -22,11 +22,15 @@ import EditIcon from "@mui/icons-material/Edit";
 import PrintIcon from "@mui/icons-material/Print";
 import {
   addReservationPayment,
+  addReservationAddOn,
   cancelReservation,
+  deleteReservationAddOn,
   deleteReservationPayment,
   getAdminReservationById,
   getRoomAvailability,
   getReservationFinancials,
+  getServiceCatalog,
+  updateReservationAddOn,
   updateReservationPayment,
   updateReservationRooms,
   updateReservationStatus,
@@ -56,6 +60,13 @@ const emptyCancelForm = {
   method: "cash",
   referenceNumber: "",
   notes: "",
+};
+
+const emptyAddOnForm = {
+  serviceId: "",
+  description: "",
+  quantity: "1",
+  unitPrice: "",
 };
 
 function primaryStatusFromHref(href = "") {
@@ -131,6 +142,13 @@ export default function ReservationViewDialog({
   const [editingPayment, setEditingPayment] = useState(null);
   const [deletePayment, setDeletePayment] = useState(null);
   const [deletePaymentSaving, setDeletePaymentSaving] = useState(false);
+  const [addOnOpen, setAddOnOpen] = useState(false);
+  const [addOnSaving, setAddOnSaving] = useState(false);
+  const [addOnForm, setAddOnForm] = useState(emptyAddOnForm);
+  const [editingAddOn, setEditingAddOn] = useState(null);
+  const [deleteAddOn, setDeleteAddOn] = useState(null);
+  const [deleteAddOnSaving, setDeleteAddOnSaving] = useState(false);
+  const [serviceCatalog, setServiceCatalog] = useState([]);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelForm, setCancelForm] = useState(emptyCancelForm);
@@ -153,6 +171,7 @@ export default function ReservationViewDialog({
     : null;
   const canRecordRefund = (financials?.netPaid || 0) > 0;
   const rooms = currentReservation?.reserved_rooms || [];
+  const addOns = currentReservation?.reservation_addons || [];
   const payments = currentReservation?.reservation_payments || [];
   const stayNights = currentReservation
     ? Math.max(
@@ -174,9 +193,22 @@ export default function ReservationViewDialog({
   const canModifyPayments = !["checked_out", "cancelled"].includes(
     currentReservation?.status,
   );
+  const canModifyAddOns = !["checked_out", "cancelled"].includes(
+    currentReservation?.status,
+  );
   const canModifyRooms = ["pending", "confirmed", "checked_in"].includes(
     currentReservation?.status,
   );
+  const addOnGridColumns = canModifyAddOns
+    ? "minmax(180px, 1fr) 80px 120px 130px 96px"
+    : "minmax(180px, 1fr) 80px 120px 130px";
+  const addOnTableMinWidth = canModifyAddOns ? 706 : 610;
+  const addOnTotal = addOns.reduce(
+    (sum, addOn) =>
+      sum + Number(addOn.quantity || 0) * Number(addOn.unit_price || 0),
+    0,
+  );
+  const roomTotal = Math.max((financials?.total || 0) - addOnTotal, 0);
   const paymentGridColumns = canModifyPayments
     ? "140px minmax(180px, 1fr) 120px 150px 112px"
     : "140px minmax(180px, 1fr) 120px 150px";
@@ -347,6 +379,122 @@ export default function ReservationViewDialog({
       setError(err.message || "Unable to delete payment.");
     } finally {
       setDeletePaymentSaving(false);
+    }
+  };
+
+  const openAddOnModal = async () => {
+    setAddOnForm(emptyAddOnForm);
+    setEditingAddOn(null);
+    await loadServiceCatalog();
+    setAddOnOpen(true);
+  };
+
+  const openEditAddOnModal = async (addOn) => {
+    const catalog = await loadServiceCatalog();
+    const matchingService = catalog.find(
+      (service) =>
+        service.name === addOn.description &&
+        Number(service.unit_price || 0) === Number(addOn.unit_price || 0),
+    );
+
+    setAddOnForm({
+      serviceId: matchingService?.id || "",
+      description: addOn.description || "",
+      quantity: String(addOn.quantity || 1),
+      unitPrice: String(addOn.unit_price || ""),
+    });
+    setEditingAddOn(addOn);
+    setAddOnOpen(true);
+  };
+
+  const closeAddOnModal = () => {
+    if (addOnSaving) return;
+    setAddOnOpen(false);
+    setAddOnForm(emptyAddOnForm);
+    setEditingAddOn(null);
+  };
+
+  const handleAddOnFormChange = (event) => {
+    setAddOnForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
+  };
+
+  const loadServiceCatalog = async () => {
+    try {
+      const data = await getServiceCatalog({ activeOnly: true });
+      setServiceCatalog(data);
+      return data;
+    } catch (err) {
+      setError(err.message || "Unable to load services.");
+      return [];
+    }
+  };
+
+  const handleAddOnServiceChange = (event) => {
+    const serviceId = event.target.value;
+    const service = serviceCatalog.find((catalogItem) => catalogItem.id === serviceId);
+
+    setAddOnForm((current) => ({
+      ...current,
+      serviceId,
+      ...(service
+        ? {
+            description: service.name,
+            unitPrice: String(service.unit_price ?? ""),
+          }
+        : {
+            description: "",
+            unitPrice: "",
+          }),
+    }));
+  };
+
+  const handleSaveAddOn = async () => {
+    if (!currentReservation) return;
+    setAddOnSaving(true);
+    setError("");
+
+    try {
+      if (editingAddOn) {
+        await updateReservationAddOn(
+          currentReservation,
+          editingAddOn.id,
+          addOnForm,
+        );
+      } else {
+        await addReservationAddOn(currentReservation, addOnForm);
+      }
+      await reloadReservation();
+      setAddOnOpen(false);
+      setAddOnForm(emptyAddOnForm);
+      setEditingAddOn(null);
+    } catch (err) {
+      setError(err.message || "Unable to save add-on.");
+    } finally {
+      setAddOnSaving(false);
+    }
+  };
+
+  const closeDeleteAddOnModal = () => {
+    if (deleteAddOnSaving) return;
+    setDeleteAddOn(null);
+  };
+
+  const handleDeleteAddOn = async () => {
+    if (!currentReservation || !deleteAddOn) return;
+    setDeleteAddOnSaving(true);
+    setError("");
+
+    try {
+      await deleteReservationAddOn(currentReservation, deleteAddOn.id);
+      await reloadReservation();
+      setDeleteAddOn(null);
+    } catch (err) {
+      setError(err.message || "Unable to delete add-on.");
+    } finally {
+      setDeleteAddOnSaving(false);
     }
   };
 
@@ -599,6 +747,22 @@ export default function ReservationViewDialog({
           )
           .join("")
       : `<tr><td colspan="3">No rooms recorded.</td></tr>`;
+    const addOnRows = addOns.length
+      ? addOns
+          .map((addOn) => {
+            const quantity = Number(addOn.quantity || 0);
+            const unitPrice = Number(addOn.unit_price || 0);
+            return `
+          <tr>
+            <td>${escapePrintValue(addOn.description || "Add-on")}</td>
+            <td>${escapePrintValue(quantity)}</td>
+            <td>${escapePrintValue(formatMoney(unitPrice))}</td>
+            <td>${escapePrintValue(formatMoney(quantity * unitPrice))}</td>
+          </tr>
+        `;
+          })
+          .join("")
+      : `<tr><td colspan="4">No add-ons recorded.</td></tr>`;
 
     printWindow.document.open();
     printWindow.document.write(`
@@ -639,6 +803,12 @@ export default function ReservationViewDialog({
           <table>
             <thead><tr><th>Room</th><th>Qty</th><th>Rate</th></tr></thead>
             <tbody>${roomRows}</tbody>
+          </table>
+
+          <h2>Add-ons</h2>
+          <table>
+            <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead>
+            <tbody>${addOnRows}</tbody>
           </table>
 
           <h2>Payment Summary</h2>
@@ -812,14 +982,16 @@ export default function ReservationViewDialog({
                   <Divider />
 
                   <Box>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent="space-between"
-                      sx={{ mb: 1.5 }}
+                    <Box
+                      sx={{
+                        alignItems: "center",
+                        display: "grid",
+                        gap: 1,
+                        gridTemplateColumns: "minmax(0, 1fr) auto",
+                        mb: 1.5,
+                      }}
                     >
-                      <Typography sx={{ fontWeight: 700 }}>
+                      <Typography sx={{ fontWeight: 700, minWidth: 0 }}>
                         Rooms
                       </Typography>
                       {canModifyRooms && (
@@ -831,7 +1003,7 @@ export default function ReservationViewDialog({
                           Change rooms
                         </Button>
                       )}
-                    </Stack>
+                    </Box>
                     {rooms.length ? (
                       <Box
                         sx={{
@@ -950,13 +1122,185 @@ export default function ReservationViewDialog({
                           <Typography
                             sx={{ fontWeight: 700, textAlign: "right" }}
                           >
-                            {formatMoney(financials.total)}
+                            {formatMoney(roomTotal)}
                           </Typography>
                         </Box>
                       </Box>
                     ) : (
                       <Typography color="text.secondary" variant="body2">
                         No rooms recorded.
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Divider />
+
+                  <Box>
+                    <Box
+                      sx={{
+                        alignItems: "center",
+                        display: "grid",
+                        gap: 1,
+                        gridTemplateColumns: "minmax(0, 1fr) auto",
+                        mb: 1.5,
+                      }}
+                    >
+                      <Typography sx={{ fontWeight: 700, minWidth: 0 }}>
+                        Add-ons
+                      </Typography>
+                      {canModifyAddOns && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={openAddOnModal}
+                        >
+                          Add add-on
+                        </Button>
+                      )}
+                    </Box>
+                    {addOns.length ? (
+                      <Box
+                        sx={{
+                          border: 1,
+                          borderColor: "divider",
+                          borderRadius: 1,
+                          overflowX: "auto",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            bgcolor: "action.hover",
+                            display: "grid",
+                            gap: 1,
+                            gridTemplateColumns: addOnGridColumns,
+                            minWidth: addOnTableMinWidth,
+                            pl: 1.5,
+                            pr: 0.75,
+                            py: 1,
+                          }}
+                        >
+                          <Typography color="text.secondary" variant="caption">
+                            Description
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ textAlign: "right" }}
+                          >
+                            Qty
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ textAlign: "right" }}
+                          >
+                            Unit price
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="caption"
+                            sx={{ textAlign: "right" }}
+                          >
+                            Total
+                          </Typography>
+                          {canModifyAddOns && (
+                            <Typography
+                              color="text.secondary"
+                              variant="caption"
+                              sx={{ textAlign: "right" }}
+                            >
+                              Actions
+                            </Typography>
+                          )}
+                        </Box>
+                        {addOns.map((addOn) => {
+                          const quantity = Number(addOn.quantity || 0);
+                          const unitPrice = Number(addOn.unit_price || 0);
+                          const lineTotal = quantity * unitPrice;
+
+                          return (
+                            <Box
+                              key={addOn.id}
+                              sx={{
+                                alignItems: "center",
+                                borderTop: 1,
+                                borderColor: "divider",
+                                display: "grid",
+                                gap: 1,
+                                gridTemplateColumns: addOnGridColumns,
+                                minWidth: addOnTableMinWidth,
+                                pl: 1.5,
+                                pr: 0.75,
+                                py: 1,
+                              }}
+                            >
+                              <Typography variant="body2">
+                                {addOn.description}
+                              </Typography>
+                              <Typography variant="body2" sx={{ textAlign: "right" }}>
+                                {quantity}
+                              </Typography>
+                              <Typography variant="body2" sx={{ textAlign: "right" }}>
+                                {formatMoney(unitPrice)}
+                              </Typography>
+                              <Typography sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                {formatMoney(lineTotal)}
+                              </Typography>
+                              {canModifyAddOns && (
+                                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                                  <IconButton
+                                    aria-label="Edit add-on"
+                                    size="small"
+                                    onClick={() => openEditAddOnModal(addOn)}
+                                    sx={{ p: 0.5 }}
+                                  >
+                                    <EditIcon fontSize="inherit" />
+                                  </IconButton>
+                                  <IconButton
+                                    aria-label="Delete add-on"
+                                    size="small"
+                                    color="error"
+                                    onClick={() => setDeleteAddOn(addOn)}
+                                    sx={{ p: 0.5 }}
+                                  >
+                                    <DeleteIcon fontSize="inherit" />
+                                  </IconButton>
+                                </Box>
+                              )}
+                            </Box>
+                          );
+                        })}
+                        <Box
+                          sx={{
+                            borderTop: 1,
+                            borderColor: "divider",
+                            display: "grid",
+                            gap: 1,
+                            gridTemplateColumns: addOnGridColumns,
+                            minWidth: addOnTableMinWidth,
+                            pl: 1.5,
+                            pr: 0.75,
+                            py: 1.25,
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              fontWeight: 700,
+                              gridColumn: "1 / 4",
+                              textAlign: "right",
+                            }}
+                          >
+                            Add-on total
+                          </Typography>
+                          <Typography sx={{ fontWeight: 700, textAlign: "right" }}>
+                            {formatMoney(addOnTotal)}
+                          </Typography>
+                          {canModifyAddOns && <Box />}
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Typography color="text.secondary" variant="body2">
+                        No add-ons recorded.
                       </Typography>
                     )}
                   </Box>
@@ -1251,6 +1595,7 @@ export default function ReservationViewDialog({
                       <TextField
                         label="Rooms"
                         type="number"
+                        size="small"
                         value={selection.roomQuantity}
                         onChange={(event) =>
                           handleRoomSelectionChange(
@@ -1275,6 +1620,10 @@ export default function ReservationViewDialog({
                         color="error"
                         variant="outlined"
                         onClick={() => handleRemoveRoomSelection(selection.key)}
+                        sx={{
+                          alignSelf: { xs: "stretch", sm: "flex-start" },
+                          minHeight: 40,
+                        }}
                         disabled={
                           roomEditorSaving ||
                           roomEditorLoading ||
@@ -1312,6 +1661,131 @@ export default function ReservationViewDialog({
             disabled={roomEditorSaving || roomEditorLoading}
           >
             {roomEditorSaving ? "Saving..." : "Save rooms"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={addOnOpen}
+        onClose={closeAddOnModal}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          {editingAddOn ? "Edit add-on" : "Add add-on"}
+          <DialogCloseButton
+            onClick={closeAddOnModal}
+            disabled={addOnSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography sx={{ fontWeight: 800 }}>
+                {currentReservation
+                  ? guestName(currentReservation.customers)
+                  : ""}
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                Current balance {formatMoney(financials?.balance)}
+              </Typography>
+            </Paper>
+            <TextField
+              select
+              label="Catalog service"
+              name="serviceId"
+              value={addOnForm.serviceId}
+              onChange={handleAddOnServiceChange}
+              fullWidth
+              required
+            >
+              <MenuItem value="" disabled>
+                Select service
+              </MenuItem>
+              {serviceCatalog.map((service) => (
+                <MenuItem key={service.id} value={service.id}>
+                  {service.name} / {formatMoney(service.unit_price)}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Quantity"
+              name="quantity"
+              type="number"
+              value={addOnForm.quantity}
+              onChange={handleAddOnFormChange}
+              inputProps={{ min: 1, step: "0.01" }}
+              fullWidth
+              required
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={handleSaveAddOn}
+            disabled={
+              addOnSaving ||
+              !addOnForm.serviceId ||
+              !addOnForm.description ||
+              !addOnForm.quantity ||
+              addOnForm.unitPrice === ""
+            }
+          >
+            {addOnSaving
+              ? "Saving..."
+              : editingAddOn
+                ? "Update add-on"
+                : "Save add-on"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteAddOn)}
+        onClose={closeDeleteAddOnModal}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Delete add-on
+          <DialogCloseButton
+            onClick={closeDeleteAddOnModal}
+            disabled={deleteAddOnSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="warning">
+              This will remove the add-on from the reservation and recalculate
+              the financials.
+            </Alert>
+            {deleteAddOn && (
+              <Paper variant="outlined" sx={{ p: 1.5 }}>
+                <Typography sx={{ fontWeight: 800 }}>
+                  {deleteAddOn.description}
+                </Typography>
+                <Typography color="text.secondary" variant="body2">
+                  {deleteAddOn.quantity} x {formatMoney(deleteAddOn.unit_price)}
+                </Typography>
+              </Paper>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeDeleteAddOnModal}
+            disabled={deleteAddOnSaving}
+          >
+            Keep add-on
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleDeleteAddOn}
+            disabled={deleteAddOnSaving}
+          >
+            {deleteAddOnSaving ? "Deleting..." : "Delete add-on"}
           </Button>
         </DialogActions>
       </Dialog>
