@@ -7,6 +7,7 @@ import {
   Chip,
   Container,
   Paper,
+  Snackbar,
   Stack,
   Tab,
   Table,
@@ -33,7 +34,6 @@ import {
   formatDateRange,
   formatMoney,
   guestName,
-  shortReference,
 } from "../../utils/reservationUi";
 import ReservationViewDialog from "./ReservationViewDialog";
 
@@ -98,6 +98,11 @@ export default function ReservationQueuePage({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedReservation, setSelectedReservation] = useState(null);
+  const [toast, setToast] = useState({
+    open: false,
+    severity: "success",
+    message: "",
+  });
   const activeTab = tabs?.find((tab) => tab.status === activeStatus);
 
   const loadReservations = useCallback(async () => {
@@ -160,6 +165,30 @@ export default function ReservationQueuePage({
   useEffect(() => {
     setActiveStatus(status);
   }, [status]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const bookingCreated = Array.isArray(router.query.bookingCreated)
+      ? router.query.bookingCreated[0]
+      : router.query.bookingCreated;
+
+    if (!bookingCreated) return;
+
+    setToast({
+      open: true,
+      severity: "success",
+      message: `Booking created. Ref ${bookingCreated}`,
+    });
+
+    const nextQuery = { ...router.query };
+    delete nextQuery.bookingCreated;
+    router.replace(
+      { pathname: router.pathname, query: nextQuery },
+      undefined,
+      { shallow: true },
+    );
+  }, [router, router.isReady, router.query.bookingCreated]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -293,13 +322,13 @@ export default function ReservationQueuePage({
               </Button>
             </Box>
             <Table
+              size="small"
               sx={{
-                minWidth: hideFinancials ? 980 : showStayNights ? 1260 : 1160,
+                minWidth: hideFinancials ? 760 : showStayNights ? 980 : 900,
               }}
             >
               <TableHead>
-                <TableRow sx={{ bgcolor: "action.hover" }}>
-                  <TableCell sx={{ fontWeight: 800 }}>Reference</TableCell>
+                <TableRow sx={{ bgcolor: "action.hover", "& th": { px: 1.25, py: 1 } }}>
                   <TableCell sx={{ fontWeight: 800 }}>Customer name</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Contact number</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Guests</TableCell>
@@ -326,24 +355,23 @@ export default function ReservationQueuePage({
                     <TableRow
                       key={reservation.id}
                       hover
-                      sx={{ "& td": { py: 1.5, verticalAlign: "middle" } }}
+                      sx={{ "& td": { px: 1.25, py: 1, verticalAlign: "middle" } }}
                     >
-                      <TableCell>{shortReference(reservation.id)}</TableCell>
-                      <TableCell sx={{ minWidth: 180 }}>
+                      <TableCell sx={{ minWidth: 140 }}>
                         {guestName(customer)}
                       </TableCell>
-                      <TableCell sx={{ minWidth: 150 }}>
+                      <TableCell sx={{ minWidth: 120 }}>
                         {customer.contact_number || "No contact number"}
                       </TableCell>
                       <TableCell>{guestCount(reservation)}</TableCell>
-                      <TableCell sx={{ minWidth: 130 }}>
+                      <TableCell sx={{ minWidth: 100 }}>
                         {roomSummary(reservation.reserved_rooms)}
                       </TableCell>
-                      <TableCell sx={{ minWidth: 180 }}>
+                      <TableCell sx={{ minWidth: 140 }}>
                         {formatDateRange(reservation)}
                       </TableCell>
                       {showStayNights && (
-                        <TableCell sx={{ minWidth: 110 }}>
+                        <TableCell sx={{ minWidth: 80 }}>
                           {stayNightSummary(reservation)}
                         </TableCell>
                       )}
@@ -378,7 +406,7 @@ export default function ReservationQueuePage({
                   <TableRow>
                     <TableCell
                       colSpan={
-                        4 +
+                        3 +
                         2 +
                         (showStayNights ? 1 : 0) +
                         (hideFinancials ? 0 : 2) +
@@ -416,6 +444,20 @@ export default function ReservationQueuePage({
         onClose={() => setSelectedReservation(null)}
         onReservationUpdated={handleReservationUpdated}
       />
+      <Snackbar
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={() => setToast((current) => ({ ...current, open: false }))}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </AdminLayout>
   );
 }

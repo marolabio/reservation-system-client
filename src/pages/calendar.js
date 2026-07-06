@@ -120,6 +120,18 @@ export default function CalendarPage() {
     )));
   };
 
+  const handleNewBookingForSelectedDate = () => {
+    if (!selectedDate) return;
+
+    router.push({
+      pathname: "/admin-booking",
+      query: {
+        checkin: selectedDate,
+        checkout: moment(selectedDate).add(1, "day").format("YYYY-MM-DD"),
+      },
+    });
+  };
+
   const calendarDays = useMemo(() => {
     const start = currentMonth.clone().startOf("month").startOf("week");
     const end = currentMonth.clone().endOf("month").endOf("week");
@@ -474,6 +486,14 @@ export default function CalendarPage() {
           </Typography>
         </DialogTitle>
         <DialogContent>
+          <Button
+            variant="contained"
+            onClick={handleNewBookingForSelectedDate}
+            sx={{ mb: 2 }}
+            fullWidth
+          >
+            New booking for this date
+          </Button>
           {selectedDateBookings.length === 0 ? (
             <Typography color="text.secondary" sx={{ pb: 2 }}>
               No bookings for this date.

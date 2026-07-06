@@ -12,6 +12,12 @@ import {
   Paper,
   Snackbar,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -30,6 +36,14 @@ const initialForm = {
   notes: "",
 };
 
+function getQueryDate(value) {
+  if (Array.isArray(value)) return getQueryDate(value[0]);
+  if (!value) return "";
+
+  const date = moment(value, "YYYY-MM-DD", true);
+  return date.isValid() ? date.format("YYYY-MM-DD") : "";
+}
+
 export default function AdminBookingPage() {
   const router = useRouter();
   const [checkin, setCheckin] = useState("");
@@ -37,14 +51,18 @@ export default function AdminBookingPage() {
   const [adult, setAdult] = useState(2);
   const [children, setChildren] = useState(0);
   const [roomQuantity, setRoomQuantity] = useState(1);
-  const [status, setStatus] = useState("confirmed");
+  const [status, setStatus] = useState("pending");
   const [roomFilter, setRoomFilter] = useState("");
   const [rooms, setRooms] = useState([]);
   const [selectedRooms, setSelectedRooms] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
+  const [toast, setToast] = useState({
+    open: false,
+    severity: "success",
+    message: "",
+  });
 
   useEffect(() => {
     async function requireSession() {
@@ -54,12 +72,23 @@ export default function AdminBookingPage() {
         return;
       }
 
-      setCheckin(moment().add(1, "day").format("YYYY-MM-DD"));
-      setCheckout(moment().add(2, "days").format("YYYY-MM-DD"));
+      const queryCheckin = getQueryDate(router.query.checkin);
+      const queryCheckout = getQueryDate(router.query.checkout);
+      const fallbackCheckin = moment().add(1, "day").format("YYYY-MM-DD");
+      const fallbackCheckout = moment().add(2, "days").format("YYYY-MM-DD");
+      const nextCheckin = queryCheckin || fallbackCheckin;
+      const nextCheckout =
+        queryCheckout && moment(queryCheckout).isAfter(nextCheckin, "day")
+          ? queryCheckout
+          : moment(nextCheckin).add(1, "day").format("YYYY-MM-DD");
+
+      setCheckin(nextCheckin);
+      setCheckout(nextCheckout || fallbackCheckout);
     }
 
+    if (!router.isReady) return;
     requireSession();
-  }, [router]);
+  }, [router, router.isReady, router.query.checkin, router.query.checkout]);
 
   useEffect(() => {
     async function loadRooms() {
@@ -73,7 +102,9 @@ export default function AdminBookingPage() {
         setSelectedRooms((current) =>
           current
             .map((selectedRoom) => {
-              const availableRoom = availability.find((room) => room.id === selectedRoom.id);
+              const availableRoom = availability.find(
+                (room) => room.id === selectedRoom.id,
+              );
               if (!availableRoom) return null;
               return {
                 ...availableRoom,
@@ -128,7 +159,8 @@ export default function AdminBookingPage() {
   });
 
   const total = selectedRooms.reduce(
-    (sum, room) => sum + Number(room.rate) * Number(room.selectedQuantity) * nights,
+    (sum, room) =>
+      sum + Number(room.rate) * Number(room.selectedQuantity) * nights,
     0,
   );
 
@@ -139,11 +171,20 @@ export default function AdminBookingPage() {
 
   const handleAddRoom = (room) => {
     setSelectedRooms((current) => {
-      const existingRoom = current.find((selectedRoom) => selectedRoom.id === room.id);
-      const quantity = Math.min(Number(roomQuantity), Number(room.available_quantity));
+      const existingRoom = current.find(
+        (selectedRoom) => selectedRoom.id === room.id,
+      );
+      const quantity = Math.min(
+        Number(roomQuantity),
+        Number(room.available_quantity),
+      );
 
       if (existingRoom) return current;
-      setToast({ open: true, severity: "success", message: `${room.name} added.` });
+      setToast({
+        open: true,
+        severity: "success",
+        message: `${room.name} added.`,
+      });
       return [...current, { ...room, selectedQuantity: quantity }];
     });
   };
@@ -176,7 +217,11 @@ export default function AdminBookingPage() {
     event.preventDefault();
 
     if (selectedRooms.length === 0) {
-      setToast({ open: true, severity: "error", message: "Choose a room first." });
+      setToast({
+        open: true,
+        severity: "error",
+        message: "Choose a room first.",
+      });
       return;
     }
 
@@ -186,7 +231,11 @@ export default function AdminBookingPage() {
       !form.email ||
       !form.contactNumber
     ) {
-      setToast({ open: true, severity: "error", message: "Complete guest details." });
+      setToast({
+        open: true,
+        severity: "error",
+        message: "Complete guest details.",
+      });
       return;
     }
 
@@ -210,10 +259,12 @@ export default function AdminBookingPage() {
         severity: "success",
         message: `Booking created. Ref ${reservationId.slice(0, 8)}`,
       });
-      setForm(initialForm);
-      setSelectedRooms([]);
-      const availability = await getRoomAvailability({ checkin, checkout });
-      setRooms(availability);
+      router.push({
+        pathname: "/bookings",
+        query: {
+          bookingCreated: reservationId.slice(0, 8),
+        },
+      });
     } catch (err) {
       setToast({
         open: true,
@@ -335,19 +386,19 @@ export default function AdminBookingPage() {
                   borderColor: "divider",
                 }}
               >
-                <Stack
-                  direction={{ xs: "column", sm: "row" }}
-                  justifyContent="space-between"
-                  alignItems={{ xs: "stretch", sm: "center" }}
-                  spacing={2}
+                <Box
+                  sx={{
+                    alignItems: { xs: "stretch", sm: "center" },
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    gap: 2,
+                    justifyContent: "space-between",
+                    width: "100%",
+                  }}
                 >
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>
                       Available rooms
-                    </Typography>
-                    <Typography color="text.secondary">
-                      {availableRooms.length} option
-                      {availableRooms.length === 1 ? "" : "s"} match.
                     </Typography>
                   </Box>
                   <TextField
@@ -355,238 +406,335 @@ export default function AdminBookingPage() {
                     value={roomFilter}
                     onChange={(event) => setRoomFilter(event.target.value)}
                     placeholder="Name, guests, rate..."
-                    sx={{ width: { xs: "100%", sm: 260 } }}
+                    sx={{ flexShrink: 0, width: { xs: "100%", sm: 260 } }}
                   />
-                </Stack>
+                </Box>
               </Box>
-              <Stack divider={<Divider />} sx={{ p: 0 }}>
-                {availableRooms.map((room) => (
-                  <Box
-                    key={room.id}
-                    sx={{
-                      alignItems: { xs: "stretch", sm: "center" },
-                      display: "grid",
-                      gap: 2,
-                      gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) auto" },
-                      p: 2,
-                    }}
-                  >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Stack
-                        direction="row"
-                        spacing={0.75}
-                        alignItems="center"
-                        useFlexGap
-                        flexWrap="wrap"
-                        sx={{ mb: 0.5 }}
-                      >
-                        <Typography sx={{ fontWeight: 800 }}>
-                          {room.name}
-                        </Typography>
-                        <Chip
-                          label={`${room.available_quantity} left`}
-                          color="primary"
-                          size="small"
-                        />
-                      </Stack>
-                      <Box
-                        sx={{
-                          display: "grid",
-                          gap: 1,
-                          gridTemplateColumns: {
-                            xs: "1fr",
-                            sm: "repeat(2, minmax(0, 1fr))",
-                          },
-                          maxWidth: 520,
-                        }}
-                      >
-                        <Box>
-                          <Typography color="text.secondary" variant="caption">
-                            Capacity
-                          </Typography>
-                          <Typography>
-                            {room.occupancy} guests
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography color="text.secondary" variant="caption">
-                            Rate
-                          </Typography>
-                          <Typography>
-                            PHP {Number(room.rate).toLocaleString()} / night
-                          </Typography>
-                        </Box>
-                      </Box>
-                      {(room.amenities || []).length > 0 && (
-                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                          {room.amenities.map((amenity) => (
-                            <Chip key={amenity.id} label={amenity.name} size="small" />
-                          ))}
-                        </Stack>
-                      )}
-                    </Box>
-                    {(() => {
-                      const isSelected = selectedRooms.some((selectedRoom) => selectedRoom.id === room.id);
-                      return (
-                    <Button
-                      variant={isSelected ? "contained" : "outlined"}
-                      onClick={() => handleAddRoom(room)}
-                      disabled={isSelected}
-                      sx={{ alignSelf: { sm: "center" }, minWidth: 112 }}
-                    >
-                      {isSelected ? "Added" : "Add room"}
-                    </Button>
+              <TableContainer>
+                <Table size="small" sx={{ minWidth: 680 }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
+                      <TableCell sx={{ fontWeight: 800 }}>Room</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Amenities</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Available</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Rate</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {availableRooms.map((room) => {
+                      const isSelected = selectedRooms.some(
+                        (selectedRoom) => selectedRoom.id === room.id,
                       );
-                    })()}
-                  </Box>
-                ))}
-                {!loading && availableRooms.length === 0 && (
-                  <Box sx={{ p: 3 }}>
-                    <Typography>
-                      No rooms match those dates, guest counts, and filter.
-                    </Typography>
-                  </Box>
-                )}
-              </Stack>
+
+                      return (
+                        <TableRow
+                          key={room.id}
+                          hover
+                          sx={{ "& td": { py: 1.25, verticalAlign: "top" } }}
+                        >
+                          <TableCell sx={{ minWidth: 190 }}>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {room.name}
+                            </Typography>
+                            <Typography color="text.secondary" variant="body2">
+                              Capacity: {room.occupancy} Pax
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 150 }}>
+                            {(room.amenities || []).length > 0 ? (
+                              <Stack
+                                direction="row"
+                                spacing={0.75}
+                                useFlexGap
+                                flexWrap="wrap"
+                              >
+                                {room.amenities.map((amenity) => (
+                                  <Chip
+                                    key={amenity.id}
+                                    label={amenity.name}
+                                    size="small"
+                                  />
+                                ))}
+                              </Stack>
+                            ) : (
+                              <Typography
+                                color="text.secondary"
+                                variant="body2"
+                              >
+                                None
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Typography color="text.secondary" variant="body2">
+                              {room.available_quantity}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {Number(room.rate).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant={isSelected ? "contained" : "outlined"}
+                              onClick={() => handleAddRoom(room)}
+                              disabled={isSelected}
+                              sx={{ minWidth: 112 }}
+                            >
+                              {isSelected ? "Added" : "Add room"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {!loading && availableRooms.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5}>
+                          <Typography>
+                            No rooms match those dates, guest counts, and
+                            filter.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
           </Box>
 
-          <Paper
-            elevation={1}
-            sx={{ p: { xs: 2.5, md: 3 }, position: { md: "sticky" }, top: 24 }}
-          >
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
-              Guest details
-            </Typography>
-            {selectedRooms.length > 0 ? (
-              <Box sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 800 }}>Selected rooms</Typography>
-                <Stack spacing={1.5} sx={{ mt: 1.5 }}>
-                  {selectedRooms.map((room) => (
-                    <Paper key={room.id} variant="outlined" sx={{ p: 1.5 }}>
-                      <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start">
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 700 }}>{room.name}</Typography>
-                          <Typography color="text.secondary" variant="body2">
-                            PHP {Number(room.rate).toLocaleString()} / night
-                          </Typography>
-                        </Box>
-                        <Button size="small" color="secondary" onClick={() => handleRemoveRoom(room.id)}>
-                          Remove
-                        </Button>
-                      </Stack>
-                      <TextField
-                        label="Rooms"
-                        type="number"
-                        size="small"
-                        value={room.selectedQuantity}
-                        onChange={(event) => handleSelectedRoomQuantity(room.id, event.target.value)}
-                        inputProps={{ min: 1, max: room.available_quantity }}
-                        helperText={`${room.available_quantity} available`}
-                        sx={{ mt: 1.5, width: 140 }}
-                      />
-                    </Paper>
-                  ))}
-                </Stack>
-                <Box
-                  component="ul"
-                  sx={{
-                    color: "text.secondary",
-                    listStylePosition: "inside",
-                    m: "8px 0 0",
-                    p: 0,
-                  }}
-                >
-                  <Typography component="li">
-                    Stay: {nights} night{nights === 1 ? "" : "s"}
-                  </Typography>
-                  <Typography component="li">
-                    Rooms: {totalSelectedRooms} room{totalSelectedRooms === 1 ? "" : "s"}
-                  </Typography>
-                  <Typography component="li">
-                    Guests: {adult} adult{Number(adult) === 1 ? "" : "s"},{" "}
-                    {children} child{Number(children) === 1 ? "" : "ren"}
-                  </Typography>
-                </Box>
-                <Typography variant="h5" sx={{ fontWeight: 800, mt: 1 }}>
-                  PHP {total.toLocaleString()}
-                </Typography>
-              </Box>
-            ) : (
-              <Typography color="text.secondary" sx={{ mb: 2 }}>
-                No room selected.
+          <Stack spacing={2} sx={{ position: { md: "sticky" }, top: 24 }}>
+            <Paper elevation={1} sx={{ p: { xs: 2.5, md: 3 } }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
+                Selected rooms
               </Typography>
-            )}
-            <Divider sx={{ mb: 2 }} />
-            <Box component="form" onSubmit={handleCreateBooking}>
-              <Stack spacing={2}>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              {selectedRooms.length > 0 ? (
+                <Box>
+                  <Stack spacing={1.25}>
+                    {selectedRooms.map((room) => (
+                      <Paper
+                        key={room.id}
+                        variant="outlined"
+                        sx={{ p: 1.5, position: "relative" }}
+                      >
+                        <Stack spacing={1.25}>
+                          <Box sx={{ minWidth: 0, pr: 9 }}>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {room.name}
+                            </Typography>
+                            <Typography
+                              color="text.secondary"
+                              variant="caption"
+                            >
+                              {room.available_quantity} available
+                            </Typography>
+                          </Box>
+                          <Button
+                            size="small"
+                            color="secondary"
+                            onClick={() => handleRemoveRoom(room.id)}
+                            sx={{
+                              position: "absolute",
+                              right: 8,
+                              top: 8,
+                            }}
+                          >
+                            Remove
+                          </Button>
+                          <Box
+                            sx={{
+                              alignItems: "center",
+                              display: "grid",
+                              gap: 1.25,
+                              gridTemplateColumns: {
+                                xs: "92px minmax(0, 1fr)",
+                                sm: "92px minmax(0, 1fr) minmax(0, 1fr)",
+                              },
+                            }}
+                          >
+                            <TextField
+                              label="Qty"
+                              type="number"
+                              size="small"
+                              value={room.selectedQuantity}
+                              onChange={(event) =>
+                                handleSelectedRoomQuantity(
+                                  room.id,
+                                  event.target.value,
+                                )
+                              }
+                              inputProps={{
+                                min: 1,
+                                max: room.available_quantity,
+                              }}
+                              sx={{ width: 92 }}
+                            />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography
+                                color="text.secondary"
+                                variant="caption"
+                                sx={{ display: "block" }}
+                              >
+                                Rate
+                              </Typography>
+                              <Typography sx={{ fontWeight: 700 }}>
+                                {Number(room.rate).toLocaleString()}
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                gridColumn: { xs: "1 / -1", sm: "auto" },
+                                minWidth: 0,
+                                textAlign: { xs: "left", sm: "right" },
+                              }}
+                            >
+                              <Typography
+                                color="text.secondary"
+                                variant="caption"
+                                sx={{ display: "block" }}
+                              >
+                                Amount
+                              </Typography>
+                              <Typography sx={{ fontWeight: 800 }}>
+                                {(
+                                  Number(room.rate) *
+                                  Number(room.selectedQuantity) *
+                                  nights
+                                ).toLocaleString()}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+
+                  <Divider sx={{ my: 2 }} />
+                  <Box
+                    sx={{
+                      alignItems: { xs: "stretch", sm: "flex-end" },
+                      display: "flex",
+                      flexDirection: { xs: "column", sm: "row" },
+                      gap: 2,
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        color: "text.secondary",
+                        display: "grid",
+                        gap: 0.5,
+                        gridTemplateColumns: "auto minmax(0, 1fr)",
+                      }}
+                    >
+                      <Typography sx={{ marginRight: 1 }}>Stay</Typography>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {nights} night{nights === 1 ? "" : "s"}
+                      </Typography>
+                      <Typography sx={{ marginRight: 1 }}>Rooms</Typography>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {totalSelectedRooms} room
+                        {totalSelectedRooms === 1 ? "" : "s"}
+                      </Typography>
+                      <Typography sx={{ marginRight: 1 }}>Guests</Typography>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {adult} adult{Number(adult) === 1 ? "" : "s"},{" "}
+                        {children} child{Number(children) === 1 ? "" : "ren"}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+                      <Typography color="text.secondary" variant="caption">
+                        Total
+                      </Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                        {total.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ) : (
+                <Typography color="text.secondary">
+                  No room selected.
+                </Typography>
+              )}
+            </Paper>
+
+            <Paper elevation={1} sx={{ p: { xs: 2.5, md: 3 } }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
+                Guest details
+              </Typography>
+              <Box component="form" onSubmit={handleCreateBooking}>
+                <Stack spacing={2}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                    <TextField
+                      label="First name"
+                      name="firstName"
+                      value={form.firstName}
+                      onChange={handleFormChange}
+                      fullWidth
+                      required
+                    />
+                    <TextField
+                      label="Last name"
+                      name="lastName"
+                      value={form.lastName}
+                      onChange={handleFormChange}
+                      fullWidth
+                      required
+                    />
+                  </Stack>
                   <TextField
-                    label="First name"
-                    name="firstName"
-                    value={form.firstName}
+                    label="Email"
+                    name="email"
+                    type="email"
+                    value={form.email}
                     onChange={handleFormChange}
                     fullWidth
                     required
                   />
                   <TextField
-                    label="Last name"
-                    name="lastName"
-                    value={form.lastName}
+                    label="Contact number"
+                    name="contactNumber"
+                    value={form.contactNumber}
                     onChange={handleFormChange}
                     fullWidth
                     required
                   />
+                  <TextField
+                    select
+                    label="Booking status"
+                    value={status}
+                    onChange={(event) => setStatus(event.target.value)}
+                    fullWidth
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="confirmed">Confirmed</MenuItem>
+                  </TextField>
+                  <TextField
+                    label="Notes"
+                    name="notes"
+                    value={form.notes}
+                    onChange={handleFormChange}
+                    fullWidth
+                    multiline
+                    minRows={3}
+                  />
+                  <Button
+                    type="submit"
+                    color="primary"
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    disabled={
+                      submitting || selectedRooms.length === 0 || nights < 1
+                    }
+                  >
+                    {submitting ? "Creating..." : "Create booking"}
+                  </Button>
                 </Stack>
-                <TextField
-                  label="Email"
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleFormChange}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  label="Contact number"
-                  name="contactNumber"
-                  value={form.contactNumber}
-                  onChange={handleFormChange}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  select
-                  label="Booking status"
-                  value={status}
-                  onChange={(event) => setStatus(event.target.value)}
-                  fullWidth
-                >
-                  <MenuItem value="confirmed">Confirmed</MenuItem>
-                  <MenuItem value="pending">Pending</MenuItem>
-                </TextField>
-                <TextField
-                  label="Notes"
-                  name="notes"
-                  value={form.notes}
-                  onChange={handleFormChange}
-                  fullWidth
-                  multiline
-                  minRows={3}
-                />
-                <Button
-                  type="submit"
-                  color="primary"
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  disabled={submitting || selectedRooms.length === 0 || nights < 1}
-                >
-                  {submitting ? "Creating..." : "Create booking"}
-                </Button>
-              </Stack>
-            </Box>
-          </Paper>
+              </Box>
+            </Paper>
+          </Stack>
         </Box>
       </Container>
       <Snackbar
