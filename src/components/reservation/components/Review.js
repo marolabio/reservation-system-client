@@ -13,7 +13,7 @@ export default function Review({ state }) {
     roomQuantity,
     room,
     adult,
-    form: { firstName, lastName, email },
+    form: { firstName, lastName, email, cityProvince },
   } = state;
 
   return (
@@ -66,6 +66,7 @@ export default function Review({ state }) {
           </Typography>
           <Typography gutterBottom>{`${firstName} ${lastName}`}</Typography>
           <Typography gutterBottom>{email}</Typography>
+          {cityProvince && <Typography gutterBottom>{cityProvince}</Typography>}
         </Grid>
       </Grid>
     </React.Fragment>

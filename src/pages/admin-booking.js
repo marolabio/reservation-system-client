@@ -33,6 +33,7 @@ const initialForm = {
   lastName: "",
   email: "",
   contactNumber: "",
+  cityProvince: "",
   notes: "",
 };
 
@@ -228,7 +229,6 @@ export default function AdminBookingPage() {
     if (
       !form.firstName ||
       !form.lastName ||
-      !form.email ||
       !form.contactNumber
     ) {
       setToast({
@@ -690,7 +690,6 @@ export default function AdminBookingPage() {
                     value={form.email}
                     onChange={handleFormChange}
                     fullWidth
-                    required
                   />
                   <TextField
                     label="Contact number"
@@ -699,6 +698,13 @@ export default function AdminBookingPage() {
                     onChange={handleFormChange}
                     fullWidth
                     required
+                  />
+                  <TextField
+                    label="City/Province"
+                    name="cityProvince"
+                    value={form.cityProvince}
+                    onChange={handleFormChange}
+                    fullWidth
                   />
                   <TextField
                     select

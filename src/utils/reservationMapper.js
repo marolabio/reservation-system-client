@@ -13,6 +13,7 @@ export function mapReservation(row) {
       last_name: customer.last_name,
       email: customer.email,
       contact_number: customer.contact_number,
+      city_province: customer.city_province,
     },
     reserved_room: reservedRooms.map((reservedRoom) => ({
       id: reservedRoom.id,

@@ -27,6 +27,7 @@ const initialForm = {
   lastName: "",
   email: "",
   contactNumber: "",
+  cityProvince: "",
   notes: "",
 };
 
@@ -152,7 +153,7 @@ export default function BookingPage() {
       return;
     }
 
-    if (!form.firstName || !form.lastName || !form.email || !form.contactNumber) {
+    if (!form.firstName || !form.lastName || !form.contactNumber) {
       setToast({ open: true, severity: "error", message: "Complete guest details." });
       return;
     }
@@ -425,8 +426,9 @@ export default function BookingPage() {
                   <TextField label="First name" name="firstName" value={form.firstName} onChange={handleFormChange} fullWidth required />
                   <TextField label="Last name" name="lastName" value={form.lastName} onChange={handleFormChange} fullWidth required />
                 </Stack>
-                <TextField label="Email" name="email" type="email" value={form.email} onChange={handleFormChange} fullWidth required />
+                <TextField label="Email" name="email" type="email" value={form.email} onChange={handleFormChange} fullWidth />
                 <TextField label="Contact number" name="contactNumber" value={form.contactNumber} onChange={handleFormChange} fullWidth required />
+                <TextField label="City/Province" name="cityProvince" value={form.cityProvince} onChange={handleFormChange} fullWidth />
                 <TextField label="Notes" name="notes" value={form.notes} onChange={handleFormChange} fullWidth multiline minRows={3} />
                 <Button type="submit" color="primary" variant="contained" size="large" fullWidth disabled={submitting || selectedRooms.length === 0 || nights < 1}>
                   {submitting ? "Reserving..." : "Reserve"}

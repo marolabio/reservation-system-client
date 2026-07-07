@@ -15,7 +15,8 @@ export const reserve = (body) => async (dispatch) => {
       first_name: body.firstName,
       last_name: body.lastName,
       contact_number: body.contactNumber,
-      email: body.email,
+      email: body.email?.trim() ? body.email.trim().toLowerCase() : null,
+      city_province: body.cityProvince || null,
     })
     .select()
     .single();

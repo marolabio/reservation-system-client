@@ -379,7 +379,8 @@ export async function createReservation(values) {
       first_name: values.firstName.trim(),
       last_name: values.lastName.trim(),
       contact_number: values.contactNumber.trim(),
-      email: values.email.trim().toLowerCase(),
+      email: values.email?.trim() ? values.email.trim().toLowerCase() : null,
+      city_province: values.cityProvince?.trim() || null,
     });
 
   if (customerError) throw customerError;
@@ -470,7 +471,7 @@ export async function getAdminReservations() {
         checked_in_at,
         checked_out_at,
         created_at,
-        customers(first_name,last_name,email,contact_number),
+        customers(first_name,last_name,email,contact_number,city_province),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
         reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
@@ -497,7 +498,7 @@ export async function getAdminReservationById(id) {
         checked_in_at,
         checked_out_at,
         created_at,
-        customers(first_name,last_name,email,contact_number),
+        customers(first_name,last_name,email,contact_number,city_province),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
         reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
@@ -528,6 +529,7 @@ async function getReservationSearchFilter(search) {
         `last_name.ilike.%${escapedSearch}%`,
         `email.ilike.%${escapedSearch}%`,
         `contact_number.ilike.%${escapedSearch}%`,
+        `city_province.ilike.%${escapedSearch}%`,
       ].join(",")
     );
   const roomQuery = supabase
@@ -655,7 +657,7 @@ export async function getAdminReservationsPage({
         checked_in_at,
         checked_out_at,
         created_at,
-        customers(first_name,last_name,email,contact_number),
+        customers(first_name,last_name,email,contact_number,city_province),
         reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
         reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)

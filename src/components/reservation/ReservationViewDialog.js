@@ -794,6 +794,7 @@ export default function ReservationViewDialog({
             <div><div class="label">Status</div><div class="value">${escapePrintValue(formatStatusLabel(currentReservation.status))}</div></div>
             <div><div class="label">Email</div><div class="value">${escapePrintValue(customer.email || "No email")}</div></div>
             <div><div class="label">Contact</div><div class="value">${escapePrintValue(customer.contact_number || "No contact number")}</div></div>
+            <div><div class="label">City/Province</div><div class="value">${escapePrintValue(customer.city_province || "No city/province")}</div></div>
             <div><div class="label">Stay</div><div class="value">${escapePrintValue(formatDateRange(currentReservation))}</div></div>
             <div><div class="label">Guests</div><div class="value">${escapePrintValue(`${currentReservation.adult || 0} adult, ${currentReservation.children || 0} child`)}</div></div>
           </div>
@@ -904,6 +905,9 @@ export default function ReservationViewDialog({
                         </Typography>
                         <Typography variant="body2">
                           {customer.contact_number || "No contact number"}
+                        </Typography>
+                        <Typography variant="body2">
+                          {customer.city_province || "No city/province"}
                         </Typography>
                       </Box>
                       <Box>

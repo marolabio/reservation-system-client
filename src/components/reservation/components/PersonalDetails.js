@@ -6,7 +6,7 @@ import Typography from "@mui/material/Typography";
 export default function PersonalDetails({ handleFormChange, state, validate }) {
   const {
     inputFocus,
-    form: { firstName, lastName, email, confirmEmail, contactNumber },
+    form: { firstName, lastName, email, confirmEmail, contactNumber, cityProvince },
     formErrors: {
       firstNameError,
       lastNameError,
@@ -62,6 +62,18 @@ export default function PersonalDetails({ handleFormChange, state, validate }) {
         <Grid item xs={12}>
           <TextField
             variant="outlined"
+            id="City/Province"
+            label="City/Province"
+            name="cityProvince"
+            value={cityProvince}
+            onChange={handleFormChange}
+            fullWidth
+            inputRef={(el) => (inputRef.current["cityProvince"] = el)}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            variant="outlined"
             required
             id="Contact Number"
             label="Contact Number"
@@ -78,7 +90,6 @@ export default function PersonalDetails({ handleFormChange, state, validate }) {
         <Grid item xs={12}>
           <TextField
             variant="outlined"
-            required
             id="Email Address"
             label="Email Address"
             name="email"
@@ -94,7 +105,6 @@ export default function PersonalDetails({ handleFormChange, state, validate }) {
         <Grid item xs={12}>
           <TextField
             variant="outlined"
-            required
             id="Confirm Email Address"
             label="Confirm Email Address"
             name="confirmEmail"

@@ -28,6 +28,7 @@ const Reservation = ({ reserve }) => {
       firstName: "",
       lastName: "",
       contactNumber: "",
+      cityProvince: "",
       email: "",
       confirmEmail: "",
     },
@@ -46,30 +47,40 @@ const Reservation = ({ reserve }) => {
     let re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; //eslint-disable-line
 
     // Conditional validations
-    setState((prevState) => ({
-      ...prevState,
-      formErrors: {
-        ...prevState.formErrors,
-        [`${name}Error`]: !value
-          ? `${id} is required`
-          : name === "email" && !re.test(value)
+    setState((prevState) => {
+      const nextForm = { ...prevState.form, [name]: value };
+      const emailError =
+        nextForm.email && !re.test(nextForm.email)
           ? "Invalid email address"
-          : name === "confirmEmail" && value !== state.form.email
+          : "";
+      const confirmEmailError =
+        nextForm.email &&
+        nextForm.confirmEmail &&
+        nextForm.confirmEmail !== nextForm.email
           ? "Email address do not match"
-          : "",
-        confirmEmailError:
-          (state.form.confirmEmail && value !== state.form.confirmEmail) ||
-          (state.form.email && value !== state.form.email)
-            ? "Email address do not match"
+          : "";
+
+      return {
+        ...prevState,
+        formErrors: {
+          ...prevState.formErrors,
+          [`${name}Error`]: !value
+            ? ["email", "confirmEmail", "cityProvince"].includes(name)
+              ? ""
+              : `${id} is required`
             : "",
-      },
-    }));
+          emailError,
+          confirmEmailError,
+        },
+      };
+    });
   };
 
   const nextStep = () => {
     const { formErrors, form } = state;
     if (activeStep === 1) {
       const emptyInputKeys = Object.keys(form).filter((key) => {
+        if (["cityProvince", "email", "confirmEmail"].includes(key)) return false;
         return form[key] === "";
       });
 
@@ -142,7 +153,7 @@ const Reservation = ({ reserve }) => {
 
   const handlePlaceReservation = () => {
     const {
-      form: { firstName, lastName, email, contactNumber },
+      form: { firstName, lastName, email, contactNumber, cityProvince },
       room,
       roomQuantity,
       checkin,
@@ -156,6 +167,7 @@ const Reservation = ({ reserve }) => {
       firstName,
       lastName,
       contactNumber,
+      cityProvince,
       email,
       checkin,
       checkout,
