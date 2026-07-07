@@ -40,7 +40,6 @@ import {
   formatDateTime,
   formatMoney,
   guestName,
-  nextReservationAction,
   paymentMethods,
   paymentTypeLabels,
   shortReference,
@@ -68,6 +67,12 @@ const emptyAddOnForm = {
   quantity: "1",
   unitPrice: "",
 };
+
+const statusChangeOptions = [
+  { value: "checked_in", label: "Check in" },
+  { value: "no_show", label: "No show" },
+  { value: "cancelled", label: "Cancel" },
+];
 
 function primaryStatusFromHref(href = "") {
   if (href === "confirm") return "confirmed";
@@ -152,6 +157,8 @@ export default function ReservationViewDialog({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelForm, setCancelForm] = useState(emptyCancelForm);
+  const [statusChangeOpen, setStatusChangeOpen] = useState(false);
+  const [statusChangeTarget, setStatusChangeTarget] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutSaving, setCheckoutSaving] = useState(false);
   const [roomEditorOpen, setRoomEditorOpen] = useState(false);
@@ -183,17 +190,13 @@ export default function ReservationViewDialog({
         0,
       )
     : 0;
-  const nextAction =
-    currentReservation && financials
-      ? nextReservationAction(currentReservation, financials)
-      : null;
   const actionsAvailable =
     currentReservation &&
-    !["checked_out", "cancelled"].includes(currentReservation.status);
-  const canModifyPayments = !["checked_out", "cancelled"].includes(
+    !["checked_out", "cancelled", "no_show"].includes(currentReservation.status);
+  const canModifyPayments = !["checked_out", "cancelled", "no_show"].includes(
     currentReservation?.status,
   );
-  const canModifyAddOns = !["checked_out", "cancelled"].includes(
+  const canModifyAddOns = !["checked_out", "cancelled", "no_show"].includes(
     currentReservation?.status,
   );
   const canModifyRooms = ["pending", "confirmed", "checked_in"].includes(
@@ -220,19 +223,22 @@ export default function ReservationViewDialog({
         : 0),
     0,
   );
-  const canCancelReservation =
-    currentReservation &&
-    !["checked_in", "checked_out", "cancelled"].includes(
-      currentReservation.status,
-    );
+  const canChangeStatus =
+    currentReservation && currentReservation.status !== "checked_out";
+  const availableStatusChangeOptions = statusChangeOptions.filter(
+    (option) => option.value !== currentReservation?.status,
+  );
   const canPrintReservation = [
     "confirmed",
     "checked_out",
+    "no_show",
     "cancelled",
   ].includes(currentReservation?.status);
   const printTitle =
     currentReservation?.status === "checked_out"
       ? "Reservation Receipt"
+      : currentReservation?.status === "no_show"
+        ? "No-show Reservation"
       : currentReservation?.status === "cancelled"
         ? "Cancelled Reservation"
         : "Reservation Confirmation";
@@ -243,15 +249,7 @@ export default function ReservationViewDialog({
           href: "confirm",
           disabled: (financials?.netPaid || 0) <= 0,
         }
-      : currentReservation?.status === "confirmed"
-        ? {
-            label: "Check in",
-            href: "check-in",
-            disabled:
-              (financials?.netPaid || 0) <
-              (financials?.checkInPaymentRequired || 0),
-          }
-        : currentReservation?.status === "checked_in"
+      : currentReservation?.status === "checked_in"
           ? {
               label: "Check out",
               href: "check-out",
@@ -665,42 +663,6 @@ export default function ReservationViewDialog({
     }
   };
 
-  const handlePrimaryAction = async () => {
-    if (!nextAction || !currentReservation) return;
-
-    if (nextAction.href.startsWith("payment")) {
-      const paymentType = nextAction.href.includes("full_payment")
-        ? "full_payment"
-        : nextAction.href.includes("partial_payment")
-          ? "partial_payment"
-          : "partial_payment";
-      const target = nextAction.href.includes("target=check_in")
-        ? "check_in"
-        : "";
-      openPaymentModal(paymentType, target);
-      return;
-    }
-
-    if (nextAction.href === "check-out") {
-      setCheckoutOpen(true);
-      return;
-    }
-
-    const nextStatus = primaryStatusFromHref(nextAction.href);
-    if (!nextStatus) return;
-
-    setActionSaving(true);
-    setError("");
-    try {
-      await updateReservationStatus(currentReservation.id, nextStatus);
-      await reloadReservation();
-    } catch (err) {
-      setError(err.message || "Unable to update reservation.");
-    } finally {
-      setActionSaving(false);
-    }
-  };
-
   const handleStatusAction = async () => {
     if (!statusAction || !currentReservation || statusAction.disabled) return;
 
@@ -720,6 +682,43 @@ export default function ReservationViewDialog({
       onClose?.();
     } catch (err) {
       setError(err.message || "Unable to update reservation.");
+    } finally {
+      setActionSaving(false);
+    }
+  };
+
+  const openStatusChangeModal = () => {
+    setStatusChangeTarget(availableStatusChangeOptions[0]?.value || "");
+    setStatusChangeOpen(true);
+  };
+
+  const closeStatusChangeModal = () => {
+    if (actionSaving) return;
+    setStatusChangeOpen(false);
+    setStatusChangeTarget("");
+  };
+
+  const handleChangeStatus = async () => {
+    if (!currentReservation || !statusChangeTarget) return;
+
+    const targetLabel =
+      statusChangeOptions.find((option) => option.value === statusChangeTarget)
+        ?.label || "selected status";
+
+    if (!window.confirm(`Change this reservation status to ${targetLabel}?`)) {
+      return;
+    }
+
+    setActionSaving(true);
+    setError("");
+    try {
+      await updateReservationStatus(currentReservation.id, statusChangeTarget);
+      await reloadReservation();
+      setStatusChangeOpen(false);
+      setStatusChangeTarget("");
+      onClose?.();
+    } catch (err) {
+      setError(err.message || "Unable to update reservation status.");
     } finally {
       setActionSaving(false);
     }
@@ -1463,7 +1462,8 @@ export default function ReservationViewDialog({
             </Stack>
           )}
         </DialogContent>
-        {currentReservation && (actionsAvailable || canPrintReservation) && (
+        {currentReservation &&
+          (actionsAvailable || canPrintReservation || canChangeStatus) && (
           <DialogActions
             sx={{
               flexWrap: "wrap",
@@ -1481,18 +1481,20 @@ export default function ReservationViewDialog({
               >
                 {currentReservation.status === "checked_out"
                   ? "Print receipt"
+                  : currentReservation.status === "no_show"
+                    ? "Print no-show"
                   : currentReservation.status === "cancelled"
                     ? "Print cancellation"
                     : "Print confirmation"}
               </Button>
             )}
-            {canCancelReservation && (
+            {canChangeStatus && availableStatusChangeOptions.length > 0 && (
               <Button
-                onClick={openCancelModal}
-                color="error"
+                onClick={openStatusChangeModal}
                 variant="outlined"
+                disabled={actionSaving}
               >
-                Cancel reservation
+                Change status
               </Button>
             )}
             {paymentAction && (
@@ -1516,17 +1518,64 @@ export default function ReservationViewDialog({
               >
                 {actionSaving ? "Saving..." : statusAction.label}
               </Button>
-            ) : nextAction ? (
-              <Button
-                variant="contained"
-                onClick={handlePrimaryAction}
-                disabled={actionSaving}
-              >
-                {actionSaving ? "Saving..." : nextAction.label}
-              </Button>
             ) : null}
           </DialogActions>
         )}
+      </Dialog>
+
+      <Dialog
+        open={statusChangeOpen}
+        onClose={closeStatusChangeModal}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Change status
+          <DialogCloseButton
+            onClick={closeStatusChangeModal}
+            disabled={actionSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography sx={{ fontWeight: 800 }}>
+                {currentReservation
+                  ? guestName(currentReservation.customers)
+                  : ""}
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                Current status{" "}
+                {String(currentReservation?.status || "").replace("_", " ")}
+              </Typography>
+            </Paper>
+            <TextField
+              select
+              label="New status"
+              value={statusChangeTarget}
+              onChange={(event) => setStatusChangeTarget(event.target.value)}
+              fullWidth
+            >
+              {availableStatusChangeOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeStatusChangeModal} disabled={actionSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleChangeStatus}
+            disabled={actionSaving || !statusChangeTarget}
+          >
+            {actionSaving ? "Saving..." : "Confirm change"}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog

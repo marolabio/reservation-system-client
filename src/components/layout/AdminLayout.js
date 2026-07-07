@@ -8,6 +8,7 @@ import AddBusinessIcon from "@mui/icons-material/AddBusiness";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import CancelIcon from "@mui/icons-material/Cancel";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import RoomServiceIcon from "@mui/icons-material/RoomService";
@@ -28,6 +29,7 @@ const navSections = [
       { label: "Sales Summary", href: "/sales-summary", icon: BarChartIcon },
       { label: "Walk-in Sales", href: "/walk-in-sales", icon: PointOfSaleIcon },
       { label: "Checked out", href: "/checkout", icon: LogoutOutlinedIcon },
+      { label: "No show", href: "/noshow", icon: EventBusyIcon },
       { label: "Cancelled", href: "/cancelled", icon: CancelIcon },
     ],
   },

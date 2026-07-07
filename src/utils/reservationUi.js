@@ -5,6 +5,7 @@ export const statusColors = {
   confirmed: "primary",
   checked_in: "success",
   checked_out: "warning",
+  no_show: "error",
   cancelled: "secondary",
 };
 
@@ -45,7 +46,7 @@ export function formatDateTime(value) {
 }
 
 export function nextReservationAction(reservation, financials) {
-  if (!reservation || ["cancelled", "checked_out"].includes(reservation.status)) return null;
+  if (!reservation || ["cancelled", "checked_out", "no_show"].includes(reservation.status)) return null;
 
   if (reservation.status === "pending") {
     if (financials.netPaid <= 0) return { label: "Record payment", href: "payment?type=partial_payment" };

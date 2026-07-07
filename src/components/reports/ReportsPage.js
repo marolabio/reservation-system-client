@@ -174,6 +174,7 @@ export default function ReportsPage() {
     { label: "Confirmed", value: stats?.confirmed || 0 },
     { label: "Checked in", value: stats?.inHouse || 0 },
     { label: "Checked out", value: stats?.checkedOut || 0 },
+    { label: "No show", value: stats?.noShow || 0 },
     { label: "Cancelled", value: stats?.cancelled || 0 },
   ];
 
@@ -258,7 +259,7 @@ export default function ReportsPage() {
               <Typography variant="h6" sx={{ fontWeight: 800 }}>
                 Reservations
               </Typography>
-              <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(5, 1fr)" }, mt: 2 }}>
+              <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(6, 1fr)" }, mt: 2 }}>
                 {countCards.map((card) => (
                   <Paper key={card.label} variant="outlined" sx={{ p: 1.5 }}>
                     <Typography color="text.secondary" variant="body2">{card.label}</Typography>

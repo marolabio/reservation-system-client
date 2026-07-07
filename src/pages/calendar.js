@@ -27,6 +27,7 @@ const statusColors = {
   confirmed: "primary",
   checked_in: "success",
   checked_out: "warning",
+  no_show: "error",
   cancelled: "secondary",
 };
 
@@ -198,6 +199,12 @@ export default function CalendarPage() {
         .length,
       filter: "checked_out",
     },
+    {
+      label: formatStatusLabel("no_show"),
+      value: monthBookings.filter((booking) => booking.status === "no_show")
+        .length,
+      filter: "no_show",
+    },
   ];
 
   return (
@@ -255,7 +262,7 @@ export default function CalendarPage() {
           sx={{
             display: "grid",
             gap: 2,
-            gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
+            gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(5, 1fr)" },
             mb: 2,
           }}
         >

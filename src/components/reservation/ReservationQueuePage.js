@@ -72,6 +72,7 @@ function countFromStats(stats, status) {
   if (status === "confirmed") return stats?.confirmed || 0;
   if (status === "checked_in") return stats?.inHouse || 0;
   if (status === "checked_out") return stats?.checkedOut || 0;
+  if (status === "no_show") return stats?.noShow || 0;
   if (status === "cancelled") return stats?.cancelled || 0;
   return 0;
 }

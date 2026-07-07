@@ -133,8 +133,8 @@ export default function ReservationDetailPage() {
   const canRecordRefund = (financials?.netPaid || 0) > 0;
   const nextAction = reservation && financials ? nextReservationAction(reservation, financials) : null;
   const basePath = reservation ? `/reservations/${reservation.id}` : "";
-  const actionsAvailable = reservation && !["checked_out", "cancelled"].includes(reservation.status);
-  const canCancelReservation = reservation && !["checked_in", "checked_out", "cancelled"].includes(reservation.status);
+  const actionsAvailable = reservation && !["checked_out", "cancelled", "no_show"].includes(reservation.status);
+  const canCancelReservation = reservation && !["checked_in", "checked_out", "cancelled", "no_show"].includes(reservation.status);
   const paymentFullAmount = Math.max(financials?.balance || 0, 0);
   const editPaymentFullAmount = Math.max(
     (financials?.balance || 0) + (editPayment && editPayment.payment_type !== "refund" ? Number(editPayment.amount || 0) : 0),

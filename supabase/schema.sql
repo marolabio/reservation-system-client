@@ -55,7 +55,7 @@ create table public.reservations (
   checkout date not null,
   adult integer not null default 1 check (adult >= 0),
   children integer not null default 0 check (children >= 0),
-  status text not null default 'pending' check (status in ('pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled')),
+  status text not null default 'pending' check (status in ('pending', 'confirmed', 'checked_in', 'checked_out', 'no_show', 'cancelled')),
   notes text,
   checked_in_at timestamptz,
   checked_out_at timestamptz,

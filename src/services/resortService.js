@@ -688,16 +688,17 @@ export async function getReservationDashboardStats({ dateFilter = "all", dateFro
     return count || 0;
   };
 
-  const [total, pending, confirmed, inHouse, checkedOut, cancelled] = await Promise.all([
+  const [total, pending, confirmed, inHouse, checkedOut, noShow, cancelled] = await Promise.all([
     countForStatus("all"),
     countForStatus("pending"),
     countForStatus("confirmed"),
     countForStatus("checked_in"),
     countForStatus("checked_out"),
+    countForStatus("no_show"),
     countForStatus("cancelled"),
   ]);
 
-  return { total, pending, confirmed, inHouse, checkedOut, cancelled };
+  return { total, pending, confirmed, inHouse, checkedOut, noShow, cancelled };
 }
 
 export async function updateReservationStatus(id, status) {
@@ -725,12 +726,8 @@ export async function updateReservationStatus(id, status) {
     throw new Error("Record a partial payment before confirming this reservation.");
   }
 
-  if (status === "checked_in" && !["confirmed", "checked_in"].includes(existingReservation.status)) {
-    throw new Error("Only confirmed reservations can be checked in.");
-  }
-
-  if (status === "checked_in" && financials.netPaid < financials.checkInPaymentRequired) {
-    throw new Error("At least half payment is required before check-in.");
+  if (status === "checked_in" && existingReservation.status === "checked_out") {
+    throw new Error("Checked-out reservations cannot be checked in again.");
   }
 
   if (status === "checked_out" && financials.balance > 0) {
@@ -739,6 +736,14 @@ export async function updateReservationStatus(id, status) {
 
   if (status === "checked_out" && !["checked_in", "checked_out"].includes(existingReservation.status)) {
     throw new Error("Only checked-in reservations can be checked out.");
+  }
+
+  if (status === "no_show" && existingReservation.status === "checked_out") {
+    throw new Error("Checked-out reservations cannot be marked as no-show.");
+  }
+
+  if (status === "cancelled" && existingReservation.status === "checked_out") {
+    throw new Error("Checked-out reservations cannot be cancelled.");
   }
 
   const updates = { status };
