@@ -6,7 +6,6 @@ import HotelIcon from "@mui/icons-material/Hotel";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AddBusinessIcon from "@mui/icons-material/AddBusiness";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
-import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import CancelIcon from "@mui/icons-material/Cancel";
 import EventBusyIcon from "@mui/icons-material/EventBusy";
 import BarChartIcon from "@mui/icons-material/BarChart";
@@ -16,10 +15,11 @@ import { useRouter } from "next/router";
 
 const navSections = [
   {
-    label: "Reservations",
+    label: "Operations",
     items: [
       { label: "New booking", href: "/admin-booking", icon: AddBusinessIcon },
       { label: "Bookings", href: "/bookings", icon: AssignmentTurnedInIcon },
+      { label: "Walk-in Sales", href: "/walk-in-sales", icon: PointOfSaleIcon },
       { label: "Calendar", href: "/calendar", icon: CalendarMonthIcon },
     ],
   },
@@ -27,8 +27,6 @@ const navSections = [
     label: "Reports",
     items: [
       { label: "Sales Summary", href: "/sales-summary", icon: BarChartIcon },
-      { label: "Walk-in Sales", href: "/walk-in-sales", icon: PointOfSaleIcon },
-      { label: "Checked out", href: "/checkout", icon: LogoutOutlinedIcon },
       { label: "No show", href: "/noshow", icon: EventBusyIcon },
       { label: "Cancelled", href: "/cancelled", icon: CancelIcon },
     ],

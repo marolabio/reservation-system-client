@@ -74,8 +74,7 @@ function itemsSummary(items = []) {
     (sum, item) => sum + Number(item.quantity || 0),
     0,
   );
-  const itemLabel = items.length === 1 ? items[0].description : `${items.length} services`;
-  return `${itemLabel} / ${totalQuantity} item${totalQuantity === 1 ? "" : "s"}`;
+  return `${totalQuantity} item${totalQuantity === 1 ? "" : "s"}`;
 }
 
 function saleToForm(sale) {
@@ -430,7 +429,7 @@ export default function WalkInSalesPage() {
                   <TableRow key={sale.id} hover sx={{ "& td": { py: 2, verticalAlign: "top" } }}>
                     <TableCell>{formatDateTime(sale.paid_at)}</TableCell>
                     <TableCell>
-                      <Typography sx={{ fontWeight: 800 }}>
+                      <Typography>
                         {saleCustomerName(sale)}
                       </Typography>
                     </TableCell>
@@ -441,7 +440,7 @@ export default function WalkInSalesPage() {
                     <TableCell sx={{ textTransform: "capitalize" }}>
                       {String(sale.payment_method || "").replace("_", " ")}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 800, textAlign: "right" }}>
+                    <TableCell sx={{ textAlign: "right" }}>
                       {formatMoney(sale.total_amount)}
                     </TableCell>
                     <TableCell>

@@ -577,7 +577,9 @@ async function getReservationSearchFilter(search) {
 }
 
 function applyReservationDashboardFilters(query, filters = {}) {
-  if (filters.status && filters.status !== "all") {
+  if (Array.isArray(filters.status) && filters.status.length) {
+    query = query.in("status", filters.status);
+  } else if (filters.status && filters.status !== "all") {
     query = query.eq("status", filters.status);
   }
 

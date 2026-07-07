@@ -23,9 +23,11 @@ import {
 } from "@mui/material";
 import AdminLayout from "../layout/AdminLayout";
 import supabase from "../../utils/supabase";
-import { getAdminReservationsPage, getReservationDashboardStats, getReservationFinancials, getWalkInSalesSummary } from "../../services/resortService";
-import { formatDateRange, formatMoney, guestName, shortReference, statusColors } from "../../utils/reservationUi";
+import { getAdminReservationsPage, getReservationFinancials, getWalkInSalesSummary } from "../../services/resortService";
+import { formatDateRange, formatMoney, guestName, shortReference } from "../../utils/reservationUi";
 import ReservationViewDialog from "../reservation/ReservationViewDialog";
+
+const salesReservationStatuses = ["checked_out"];
 
 function getDefaultCustomDates() {
   return {
@@ -40,10 +42,21 @@ function roomSummary(rooms = []) {
   return `${totalRooms} ${totalRooms === 1 ? "room" : "rooms"}`;
 }
 
+function stayNightSummary(reservation) {
+  const nights = Math.max(
+    Math.ceil(
+      (new Date(reservation.checkout) - new Date(reservation.checkin)) /
+        (1000 * 60 * 60 * 24),
+    ),
+    0,
+  );
+
+  return `${nights} ${nights === 1 ? "night" : "nights"}`;
+}
+
 export default function ReportsPage() {
   const router = useRouter();
   const defaultDates = useMemo(() => getDefaultCustomDates(), []);
-  const [stats, setStats] = useState(null);
   const [reservations, setReservations] = useState([]);
   const [reservationCount, setReservationCount] = useState(0);
   const [financials, setFinancials] = useState({
@@ -77,18 +90,17 @@ export default function ReportsPage() {
     setLoading(true);
     setError("");
     try {
-      const [nextStats, reservationsData, totalsData, walkInSummary] = await Promise.all([
-        getReservationDashboardStats(activeDateParams),
+      const [reservationsData, totalsData, walkInSummary] = await Promise.all([
         getAdminReservationsPage({
           page,
           pageSize: rowsPerPage,
-          status: "all",
+          status: salesReservationStatuses,
           ...activeDateParams,
         }),
         getAdminReservationsPage({
           page: 0,
           pageSize: 1000,
-          status: "all",
+          status: salesReservationStatuses,
           ...activeDateParams,
         }),
         getWalkInSalesSummary(activeDateParams),
@@ -106,8 +118,6 @@ export default function ReportsPage() {
         },
         { grossSales: 0, collected: 0, refunds: 0, balance: 0 }
       );
-
-      setStats(nextStats);
       setReservations(reservationsData.reservations);
       setReservationCount(reservationsData.count);
       setFinancials({
@@ -168,15 +178,6 @@ export default function ReportsPage() {
     financials.refunds > 0 ? { label: "Refunds", value: formatMoney(financials.refunds) } : null,
     { label: "Open balance", value: formatMoney(financials.balance) },
   ].filter(Boolean);
-
-  const countCards = [
-    { label: "Pending", value: stats?.pending || 0 },
-    { label: "Confirmed", value: stats?.confirmed || 0 },
-    { label: "Checked in", value: stats?.inHouse || 0 },
-    { label: "Checked out", value: stats?.checkedOut || 0 },
-    { label: "No show", value: stats?.noShow || 0 },
-    { label: "Cancelled", value: stats?.cancelled || 0 },
-  ];
 
   return (
     <AdminLayout loading={loading} onSignOut={handleLogout}>
@@ -257,33 +258,22 @@ export default function ReportsPage() {
           <TableContainer component={Paper} elevation={1}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
               <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                Reservations
+                Guest
               </Typography>
-              <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(6, 1fr)" }, mt: 2 }}>
-                {countCards.map((card) => (
-                  <Paper key={card.label} variant="outlined" sx={{ p: 1.5 }}>
-                    <Typography color="text.secondary" variant="body2">{card.label}</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 800, mt: 0.25 }}>
-                      {card.value}
-                    </Typography>
-                  </Paper>
-                ))}
-              </Box>
             </Box>
-            <Table sx={{ minWidth: financials.refunds > 0 ? 1180 : 1080 }}>
+            <Table sx={{ minWidth: financials.refunds > 0 ? 1100 : 1000 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Reference</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Customer name</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rooms</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Stay</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Nights</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Total</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Paid</TableCell>
                   {financials.refunds > 0 && (
                     <TableCell sx={{ fontWeight: 800 }}>Refunded</TableCell>
                   )}
-                  <TableCell sx={{ fontWeight: 800 }}>Balance</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Action</TableCell>
                 </TableRow>
               </TableHead>
@@ -298,17 +288,12 @@ export default function ReportsPage() {
                       </TableCell>
                       <TableCell sx={{ minWidth: 220 }}>{roomSummary(reservation.reserved_rooms)}</TableCell>
                       <TableCell sx={{ minWidth: 170 }}>{formatDateRange(reservation)}</TableCell>
+                      <TableCell>{stayNightSummary(reservation)}</TableCell>
                       <TableCell>{formatMoney(financial.total)}</TableCell>
                       <TableCell>{formatMoney(financial.paid)}</TableCell>
                       {financials.refunds > 0 && (
                         <TableCell>{formatMoney(financial.refunded)}</TableCell>
                       )}
-                      <TableCell sx={{ color: financial.balance > 0 ? "error.main" : "success.main" }}>
-                        {formatMoney(financial.balance)}
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={reservation.status} color={statusColors[reservation.status] || "default"} size="small" />
-                      </TableCell>
                       <TableCell>
                         <Button onClick={() => setSelectedReservation(reservation)} size="small" variant="outlined">
                           View
@@ -319,7 +304,7 @@ export default function ReportsPage() {
                 })}
                 {!loading && reservations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={financials.refunds > 0 ? 10 : 9}>
+                    <TableCell colSpan={financials.refunds > 0 ? 9 : 8}>
                       <Typography align="center" sx={{ py: 4 }}>
                         No reservations found for this date range.
                       </Typography>
