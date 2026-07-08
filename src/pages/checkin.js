@@ -6,6 +6,8 @@ export default function CheckInPage() {
       title="Checked in reservations"
       status="checked_in"
       emptyMessage="No checked in reservations."
+      hideTitleCount
+      showStayNights
     />
   );
 }

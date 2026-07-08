@@ -7,6 +7,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import AddBusinessIcon from "@mui/icons-material/AddBusiness";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import CancelIcon from "@mui/icons-material/Cancel";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EventBusyIcon from "@mui/icons-material/EventBusy";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
@@ -19,8 +20,9 @@ const navSections = [
     items: [
       { label: "New booking", href: "/admin-booking", icon: AddBusinessIcon },
       { label: "Bookings", href: "/bookings", icon: AssignmentTurnedInIcon },
-      { label: "Walk-in Sales", href: "/walk-in-sales", icon: PointOfSaleIcon },
+      { label: "Checked in", href: "/checkin", icon: CheckCircleIcon },
       { label: "Calendar", href: "/calendar", icon: CalendarMonthIcon },
+      { label: "Walk-in Sales", href: "/walk-in-sales", icon: PointOfSaleIcon },
     ],
   },
   {
