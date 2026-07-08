@@ -113,6 +113,10 @@ function stayNightSummary(reservation) {
   return `${nights} ${nights === 1 ? "night" : "nights"}`;
 }
 
+function guestCount(reservation) {
+  return Number(reservation?.adult || 0) + Number(reservation?.children || 0);
+}
+
 export default function ReportsPage({ status = "checked_out" }) {
   const router = useRouter();
   const reportConfig = reportConfigs[status] || reportConfigs.checked_out;
@@ -121,6 +125,8 @@ export default function ReportsPage({ status = "checked_out" }) {
   const [reservationCount, setReservationCount] = useState(0);
   const [financials, setFinancials] = useState({
     grossSales: 0,
+    addOnSales: 0,
+    guests: 0,
     collected: 0,
     refunds: 0,
     balance: 0,
@@ -178,19 +184,28 @@ export default function ReportsPage({ status = "checked_out" }) {
       const totals = totalsData.reservations.reduce(
         (sum, reservation) => {
           const reservationFinancials = getReservationFinancials(reservation);
+          const addOnSales = (reservation.reservation_addons || []).reduce(
+            (total, addOn) =>
+              total + Number(addOn.quantity || 0) * Number(addOn.unit_price || 0),
+            0,
+          );
           return {
             grossSales: sum.grossSales + reservationFinancials.total,
+            addOnSales: sum.addOnSales + addOnSales,
+            guests: sum.guests + guestCount(reservation),
             collected: sum.collected + reservationFinancials.paid,
             refunds: sum.refunds + reservationFinancials.refunded,
             balance: sum.balance + reservationFinancials.balance,
           };
         },
-        { grossSales: 0, collected: 0, refunds: 0, balance: 0 }
+        { grossSales: 0, addOnSales: 0, guests: 0, collected: 0, refunds: 0, balance: 0 }
       );
       setReservations(reservationsData.reservations);
       setReservationCount(reservationsData.count);
       setFinancials({
         grossSales: totals.grossSales + walkInSummary.total,
+        addOnSales: totals.addOnSales,
+        guests: totals.guests,
         collected: totals.collected + walkInSummary.total,
         refunds: totals.refunds,
         balance: totals.balance,
@@ -266,7 +281,7 @@ export default function ReportsPage({ status = "checked_out" }) {
   };
 
   const handleResetFilters = () => {
-  const range = getQuickDateRange("year");
+    const range = getQuickDateRange("year");
 
     setDateFilter("year");
     setDateFrom(range.from);
@@ -288,11 +303,11 @@ export default function ReportsPage({ status = "checked_out" }) {
   };
 
   const moneyCards = reportConfig.showFinancialCards ? [
+    { label: "Bookings", value: reservationCount.toLocaleString() },
+    { label: "Guests", value: financials.guests.toLocaleString() },
     { label: "Gross sales", value: formatMoney(financials.grossSales) },
-    { label: "Collected", value: formatMoney(financials.collected) },
-    { label: "Walk-in sales", value: formatMoney(financials.walkInSales) },
+    { label: "Add-ons sales", value: formatMoney(financials.addOnSales) },
     financials.refunds > 0 ? { label: "Refunds", value: formatMoney(financials.refunds) } : null,
-    { label: "Open balance", value: formatMoney(financials.balance) },
   ].filter(Boolean) : [];
   const hasActiveFilters = !isDefaultFilter({
     dateFilter,
@@ -377,11 +392,12 @@ export default function ReportsPage({ status = "checked_out" }) {
                 {reportConfig.tableTitle}
               </Typography>
             </Box>
-            <Table sx={{ minWidth: financials.refunds > 0 ? 1100 : 1000 }}>
+            <Table sx={{ minWidth: financials.refunds > 0 ? 1180 : 1080 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Reference</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Customer name</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Guests</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Rooms</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Stay</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Nights</TableCell>
@@ -402,6 +418,7 @@ export default function ReportsPage({ status = "checked_out" }) {
                       <TableCell sx={{ minWidth: 180 }}>
                         {guestName(reservation.customers)}
                       </TableCell>
+                      <TableCell>{guestCount(reservation)}</TableCell>
                       <TableCell sx={{ minWidth: 220 }}>{roomSummary(reservation.reserved_rooms)}</TableCell>
                       <TableCell sx={{ minWidth: 170 }}>{formatDateRange(reservation)}</TableCell>
                       <TableCell>{stayNightSummary(reservation)}</TableCell>
@@ -420,7 +437,7 @@ export default function ReportsPage({ status = "checked_out" }) {
                 })}
                 {!loading && reservations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={financials.refunds > 0 ? 9 : 8}>
+                    <TableCell colSpan={financials.refunds > 0 ? 10 : 9}>
                       <Typography align="center" sx={{ py: 4 }}>
                         {reportConfig.emptyMessage}
                       </Typography>
