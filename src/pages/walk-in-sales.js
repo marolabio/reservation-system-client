@@ -133,8 +133,8 @@ function printWalkInReceipt(sale) {
           body { color: #111827; font-family: Arial, sans-serif; margin: 40px; }
           h1 { font-size: 24px; margin: 0 0 4px; }
           h2 { border-bottom: 1px solid #e5e7eb; font-size: 15px; margin: 28px 0 12px; padding-bottom: 8px; }
-          table { border-collapse: collapse; width: 100%; }
-          td, th { border-bottom: 1px solid #e5e7eb; padding: 9px 0; text-align: left; }
+          table { border: 1px solid #d1d5db; border-collapse: collapse; width: 100%; }
+          td, th { border: 1px solid #d1d5db; padding: 9px 12px; text-align: left; }
           th { color: #6b7280; font-size: 12px; text-transform: uppercase; }
           td:nth-child(2), td:nth-child(3), td:nth-child(4), th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: right; }
           .muted { color: #6b7280; }

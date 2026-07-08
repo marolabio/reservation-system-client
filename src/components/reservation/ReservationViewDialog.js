@@ -854,8 +854,8 @@ export default function ReservationViewDialog({
             body { color: #111827; font-family: Arial, sans-serif; margin: 40px; }
             h1 { font-size: 24px; margin: 0 0 4px; }
             h2 { border-bottom: 1px solid #e5e7eb; font-size: 15px; margin: 28px 0 12px; padding-bottom: 8px; }
-            table { border-collapse: collapse; width: 100%; }
-            td, th { border-bottom: 1px solid #e5e7eb; padding: 9px 0; text-align: left; }
+            table { border: 1px solid #d1d5db; border-collapse: collapse; width: 100%; }
+            td, th { border: 1px solid #d1d5db; padding: 9px 12px; text-align: left; }
             th { color: #6b7280; font-size: 12px; text-transform: uppercase; }
             .muted { color: #6b7280; }
             .grid { display: grid; gap: 12px 32px; grid-template-columns: 1fr 1fr; }
@@ -886,11 +886,13 @@ export default function ReservationViewDialog({
             <tbody>${roomRows}</tbody>
           </table>
 
+          ${addOns.length ? `
           <h2>Add-ons</h2>
           <table>
             <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead>
             <tbody>${addOnRows}</tbody>
           </table>
+          ` : ""}
 
           <h2>Payment Summary</h2>
           <table class="summary">

@@ -419,7 +419,7 @@ export default function ReportsPage({ status = "checked_out" }) {
                         {guestName(reservation.customers)}
                       </TableCell>
                       <TableCell>{guestCount(reservation)}</TableCell>
-                      <TableCell sx={{ minWidth: 220 }}>{roomSummary(reservation.reserved_rooms)}</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>{roomSummary(reservation.reserved_rooms)}</TableCell>
                       <TableCell sx={{ minWidth: 170 }}>{formatDateRange(reservation)}</TableCell>
                       <TableCell>{stayNightSummary(reservation)}</TableCell>
                       <TableCell>{formatMoney(financial.total)}</TableCell>
