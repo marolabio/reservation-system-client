@@ -33,6 +33,7 @@ import {
   updateReservationAddOn,
   updateReservationPayment,
   updateReservationRooms,
+  updateReservationStayDates,
   updateReservationStatus,
 } from "../../services/resortService";
 import {
@@ -66,6 +67,11 @@ const emptyAddOnForm = {
   description: "",
   quantity: "1",
   unitPrice: "",
+};
+
+const emptyStayForm = {
+  checkin: "",
+  checkout: "",
 };
 
 const statusChangeOptions = [
@@ -166,6 +172,10 @@ export default function ReservationViewDialog({
   const [roomEditorSaving, setRoomEditorSaving] = useState(false);
   const [roomOptions, setRoomOptions] = useState([]);
   const [roomSelections, setRoomSelections] = useState([]);
+  const [stayEditorOpen, setStayEditorOpen] = useState(false);
+  const [stayEditorSaving, setStayEditorSaving] = useState(false);
+  const [stayEditorError, setStayEditorError] = useState("");
+  const [stayForm, setStayForm] = useState(emptyStayForm);
 
   useEffect(() => {
     setCurrentReservation(reservation);
@@ -202,6 +212,7 @@ export default function ReservationViewDialog({
   const canModifyRooms = ["pending", "confirmed", "checked_in"].includes(
     currentReservation?.status,
   );
+  const canModifyStay = canModifyRooms;
   const addOnGridColumns = canModifyAddOns
     ? "minmax(180px, 1fr) 80px 120px 130px 96px"
     : "minmax(180px, 1fr) 80px 120px 130px";
@@ -266,6 +277,30 @@ export default function ReservationViewDialog({
             (financials?.balance || 0) > 0
           ? { paymentType: "full_payment", target: "" }
           : null;
+  const stayPreviewReservation = currentReservation
+    ? {
+        ...currentReservation,
+        checkin: stayForm.checkin || currentReservation.checkin,
+        checkout: stayForm.checkout || currentReservation.checkout,
+      }
+    : null;
+  const stayPreviewFinancials = stayPreviewReservation
+    ? getReservationFinancials(stayPreviewReservation)
+    : null;
+  const stayPreviewNights = stayPreviewReservation
+    ? Math.max(
+        Math.ceil(
+          (new Date(stayPreviewReservation.checkout) -
+            new Date(stayPreviewReservation.checkin)) /
+            (1000 * 60 * 60 * 24),
+        ),
+        0,
+      )
+    : 0;
+  const stayPreviewCredit = Math.max(
+    (stayPreviewFinancials?.netPaid || 0) - (stayPreviewFinancials?.total || 0),
+    0,
+  );
 
   const reloadReservation = async () => {
     const nextReservation = await getAdminReservationById(
@@ -554,6 +589,52 @@ export default function ReservationViewDialog({
       setError(err.message || "Unable to check out guest.");
     } finally {
       setCheckoutSaving(false);
+    }
+  };
+
+  const openStayEditor = () => {
+    if (!currentReservation) return;
+
+    setStayForm({
+      checkin: currentReservation.checkin || "",
+      checkout: currentReservation.checkout || "",
+    });
+    setStayEditorOpen(true);
+    setStayEditorError("");
+    setError("");
+  };
+
+  const closeStayEditor = () => {
+    if (stayEditorSaving) return;
+    setStayEditorOpen(false);
+    setStayEditorError("");
+    setStayForm(emptyStayForm);
+  };
+
+  const handleStayFormChange = (event) => {
+    const { name, value } = event.target;
+    setStayForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+    setStayEditorError("");
+  };
+
+  const handleSaveStayDates = async () => {
+    if (!currentReservation) return;
+    setStayEditorSaving(true);
+    setStayEditorError("");
+
+    try {
+      await updateReservationStayDates(currentReservation, stayForm);
+      await reloadReservation();
+      setStayEditorOpen(false);
+      setStayEditorError("");
+      setStayForm(emptyStayForm);
+    } catch (err) {
+      setStayEditorError(err.message || "Unable to update stay dates.");
+    } finally {
+      setStayEditorSaving(false);
     }
   };
 
@@ -931,9 +1012,24 @@ export default function ReservationViewDialog({
                         <Typography color="text.secondary" variant="caption">
                           Stay
                         </Typography>
-                        <Typography variant="body2">
-                          {formatDateRange(currentReservation)}
-                        </Typography>
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          spacing={1}
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                        >
+                          <Typography variant="body2">
+                            {formatDateRange(currentReservation)}
+                          </Typography>
+                          {canModifyStay && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={openStayEditor}
+                            >
+                              Edit stay
+                            </Button>
+                          )}
+                        </Stack>
                       </Box>
                       <Box>
                         <Typography color="text.secondary" variant="caption">
@@ -1578,6 +1674,117 @@ export default function ReservationViewDialog({
             disabled={actionSaving || !statusChangeTarget}
           >
             {actionSaving ? "Saving..." : "Confirm change"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={stayEditorOpen}
+        onClose={closeStayEditor}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Edit stay
+          <DialogCloseButton
+            onClick={closeStayEditor}
+            disabled={stayEditorSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography sx={{ fontWeight: 800 }}>
+                {currentReservation
+                  ? guestName(currentReservation.customers)
+                  : ""}
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                Current stay{" "}
+                {currentReservation ? formatDateRange(currentReservation) : ""}
+              </Typography>
+            </Paper>
+            {stayEditorError && (
+              <Alert severity="error">{stayEditorError}</Alert>
+            )}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+              <TextField
+                label="Check-in"
+                name="checkin"
+                type="date"
+                value={stayForm.checkin}
+                onChange={handleStayFormChange}
+                InputLabelProps={{ shrink: true }}
+                disabled={stayEditorSaving}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Checkout"
+                name="checkout"
+                type="date"
+                value={stayForm.checkout}
+                onChange={handleStayFormChange}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ min: stayForm.checkin || undefined }}
+                disabled={stayEditorSaving}
+                fullWidth
+                required
+              />
+            </Stack>
+            {stayPreviewFinancials && (
+              <Paper variant="outlined" sx={{ p: 1.5 }}>
+                <Stack spacing={1}>
+                  <FinancialKpi
+                    label="New nights"
+                    value={`${stayPreviewNights} ${
+                      stayPreviewNights === 1 ? "night" : "nights"
+                    }`}
+                  />
+                  <FinancialKpi
+                    label="New total"
+                    value={formatMoney(stayPreviewFinancials.total)}
+                  />
+                  <FinancialKpi
+                    label="New balance"
+                    value={formatMoney(stayPreviewFinancials.balance)}
+                    color={
+                      stayPreviewFinancials.balance > 0
+                        ? "error.main"
+                        : "success.main"
+                    }
+                  />
+                  {stayPreviewCredit > 0 && (
+                    <FinancialKpi
+                      label="Credit/refund due"
+                      value={formatMoney(stayPreviewCredit)}
+                      color="warning.main"
+                    />
+                  )}
+                </Stack>
+              </Paper>
+            )}
+            <Alert severity="info">
+              Saving checks the current rooms against the new dates before the
+              stay is updated.
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeStayEditor} disabled={stayEditorSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveStayDates}
+            disabled={
+              stayEditorSaving ||
+              !stayForm.checkin ||
+              !stayForm.checkout ||
+              new Date(stayForm.checkout) <= new Date(stayForm.checkin)
+            }
+          >
+            {stayEditorSaving ? "Saving..." : "Save stay"}
           </Button>
         </DialogActions>
       </Dialog>

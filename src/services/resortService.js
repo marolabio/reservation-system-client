@@ -1059,6 +1059,66 @@ export async function updateReservationRooms(reservation, selectedRooms) {
   if (insertError) throw insertError;
 }
 
+export async function updateReservationStayDates(reservation, values) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  if (["checked_out", "cancelled", "no_show"].includes(reservation.status)) {
+    throw new Error("Closed reservations cannot have their stay dates changed.");
+  }
+
+  const checkin = values.checkin;
+  const checkout = values.checkout;
+
+  if (!checkin || !checkout) {
+    throw new Error("Choose both check-in and checkout dates.");
+  }
+
+  if (new Date(checkout) <= new Date(checkin)) {
+    throw new Error("Checkout must be after check-in.");
+  }
+
+  const requestedRooms = (reservation.reserved_rooms || [])
+    .map((room) => ({
+      roomId: room.room_id,
+      roomQuantity: Number(room.reserved_quantity),
+    }))
+    .filter((room) => room.roomId && room.roomQuantity > 0);
+
+  if (!requestedRooms.length) {
+    throw new Error("This reservation has no rooms to validate.");
+  }
+
+  const availability = await getRoomAvailability({
+    checkin,
+    checkout,
+    excludeReservationId: reservation.id,
+  });
+
+  requestedRooms.forEach((requestedRoom) => {
+    const selectedRoom = availability.find((room) => room.id === requestedRoom.roomId);
+
+    if (!selectedRoom) {
+      throw new Error("Selected room was not found.");
+    }
+
+    if (Number(selectedRoom.available_quantity) < requestedRoom.roomQuantity) {
+      throw new Error(`${selectedRoom.name} is not available for the selected dates.`);
+    }
+  });
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({ checkin, checkout })
+    .eq("id", reservation.id)
+    .select("id,checkin,checkout")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteReservation(id) {
   const { error } = await supabase
     .from("reservations")
