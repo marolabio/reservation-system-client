@@ -28,7 +28,7 @@ const navSections = [
   {
     label: "Reports",
     items: [
-      { label: "Sales Summary", href: "/sales-summary", icon: BarChartIcon },
+      { label: "Checked out", href: "/checkout", icon: BarChartIcon },
       { label: "No show", href: "/noshow", icon: EventBusyIcon },
       { label: "Cancelled", href: "/cancelled", icon: CancelIcon },
     ],

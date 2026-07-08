@@ -412,7 +412,14 @@ export default function WalkInSalesPage() {
         )}
 
         <TableContainer component={Paper} elevation={1}>
-            <Table sx={{ minWidth: 980 }}>
+            <Table
+              size="small"
+              sx={{
+                minWidth: 980,
+                "& th": { px: 1.25, py: 1 },
+                "& td": { px: 1.25, py: 1 },
+              }}
+            >
               <TableHead>
                 <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 800 }}>Date</TableCell>
@@ -426,7 +433,7 @@ export default function WalkInSalesPage() {
               </TableHead>
               <TableBody>
                 {sales.map((sale) => (
-                  <TableRow key={sale.id} hover sx={{ "& td": { py: 2, verticalAlign: "top" } }}>
+                  <TableRow key={sale.id} hover sx={{ "& td": { verticalAlign: "middle" } }}>
                     <TableCell>{formatDateTime(sale.paid_at)}</TableCell>
                     <TableCell>
                       <Typography>

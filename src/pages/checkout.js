@@ -1,13 +1,5 @@
-import ReservationQueuePage from "../components/reservation/ReservationQueuePage";
+import ReportsPage from "../components/reports/ReportsPage";
 
 export default function CheckOutPage() {
-  return (
-    <ReservationQueuePage
-      title="Checked out reservations"
-      status="checked_out"
-      emptyMessage="No checked out reservations."
-      hideTitleCount
-      showStayNights
-    />
-  );
+  return <ReportsPage status="checked_out" />;
 }

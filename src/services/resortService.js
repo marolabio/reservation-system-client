@@ -515,6 +515,29 @@ function escapeLikeSearch(value) {
   return value.replace(/[%_]/g, "\\$&");
 }
 
+async function getReservationIdsByReferenceSearch(term) {
+  const cleanTerm = term.trim().toLowerCase();
+
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTerm)) {
+    return [cleanTerm];
+  }
+
+  if (!/^[0-9a-f]{4,8}$/i.test(cleanTerm)) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("id")
+    .limit(5000);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map((reservation) => reservation.id)
+    .filter((id) => String(id || "").toLowerCase().startsWith(cleanTerm));
+}
+
 async function getReservationSearchFilter(search) {
   const term = search?.trim();
   if (!term) return "";
@@ -547,7 +570,7 @@ async function getReservationSearchFilter(search) {
 
   const customerIds = (customers || []).map((customer) => customer.id);
   const roomIds = (rooms || []).map((room) => room.id);
-  let reservationIds = [];
+  const reservationIds = await getReservationIdsByReferenceSearch(term);
 
   if (roomIds.length) {
     const { data: reservedRooms, error: reservedRoomsError } = await supabase
@@ -556,7 +579,7 @@ async function getReservationSearchFilter(search) {
       .in("room_id", roomIds);
 
     if (reservedRoomsError) throw reservedRoomsError;
-    reservationIds = [...new Set((reservedRooms || []).map((room) => room.reservation_id))];
+    reservationIds.push(...(reservedRooms || []).map((room) => room.reservation_id));
   }
 
   const filters = [`status.ilike.%${escapedSearch}%`, `notes.ilike.%${escapedSearch}%`];
@@ -566,11 +589,7 @@ async function getReservationSearchFilter(search) {
   }
 
   if (reservationIds.length) {
-    filters.push(`id.in.(${reservationIds.join(",")})`);
-  }
-
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term)) {
-    filters.push(`id.eq.${term}`);
+    filters.push(`id.in.(${[...new Set(reservationIds)].join(",")})`);
   }
 
   return filters.join(",");

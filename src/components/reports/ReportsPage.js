@@ -7,6 +7,10 @@ import {
   Button,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Paper,
   Stack,
   Table,
@@ -23,17 +27,72 @@ import {
 } from "@mui/material";
 import AdminLayout from "../layout/AdminLayout";
 import supabase from "../../utils/supabase";
-import { getAdminReservationsPage, getReservationFinancials, getWalkInSalesSummary } from "../../services/resortService";
+import {
+  getAdminReservationsPage,
+  getReservationFinancials,
+  getWalkInSalesSummary,
+} from "../../services/resortService";
 import { formatDateRange, formatMoney, guestName, shortReference } from "../../utils/reservationUi";
 import ReservationViewDialog from "../reservation/ReservationViewDialog";
 
-const salesReservationStatuses = ["checked_out"];
+const reportConfigs = {
+  checked_out: {
+    title: "Checked out report",
+    description: "Checked-out reservations and payment summary by date range.",
+    tableTitle: "Checked-out guests",
+    emptyMessage: "No checked-out reservations found for this date range.",
+    showFinancialCards: true,
+  },
+  no_show: {
+    title: "No-show report",
+    description: "No-show reservations by date range.",
+    tableTitle: "No-show guests",
+    emptyMessage: "No no-show reservations found for this date range.",
+    showFinancialCards: false,
+  },
+  cancelled: {
+    title: "Cancelled report",
+    description: "Cancelled reservations by date range.",
+    tableTitle: "Cancelled guests",
+    emptyMessage: "No cancelled reservations found for this date range.",
+    showFinancialCards: false,
+  },
+};
 
 function getDefaultCustomDates() {
   return {
-    from: moment().startOf("month").format("YYYY-MM-DD"),
-    to: moment().endOf("month").format("YYYY-MM-DD"),
+    from: moment().startOf("year").format("YYYY-MM-DD"),
+    to: moment().endOf("year").format("YYYY-MM-DD"),
   };
+}
+
+function getQuickDateRange(value) {
+  if (value === "day") {
+    return {
+      from: moment().format("YYYY-MM-DD"),
+      to: moment().format("YYYY-MM-DD"),
+    };
+  }
+
+  if (value === "year") {
+    return {
+      from: moment().startOf("year").format("YYYY-MM-DD"),
+      to: moment().endOf("year").format("YYYY-MM-DD"),
+    };
+  }
+
+  return getDefaultCustomDates();
+}
+
+function isDefaultFilter({ dateFilter, dateFrom, dateTo, search }) {
+  const defaultDates = getDefaultCustomDates();
+
+  return (
+    dateFilter === "year" &&
+    dateFrom === defaultDates.from &&
+    dateTo === defaultDates.to &&
+    !search
+  );
 }
 
 function roomSummary(rooms = []) {
@@ -54,8 +113,9 @@ function stayNightSummary(reservation) {
   return `${nights} ${nights === 1 ? "night" : "nights"}`;
 }
 
-export default function ReportsPage() {
+export default function ReportsPage({ status = "checked_out" }) {
   const router = useRouter();
+  const reportConfig = reportConfigs[status] || reportConfigs.checked_out;
   const defaultDates = useMemo(() => getDefaultCustomDates(), []);
   const [reservations, setReservations] = useState([]);
   const [reservationCount, setReservationCount] = useState(0);
@@ -67,9 +127,15 @@ export default function ReportsPage() {
     walkInSales: 0,
     walkInCount: 0,
   });
-  const [dateFilter, setDateFilter] = useState("month");
-  const [customFrom, setCustomFrom] = useState(defaultDates.from);
-  const [customTo, setCustomTo] = useState(defaultDates.to);
+  const [dateFilter, setDateFilter] = useState("year");
+  const [dateFrom, setDateFrom] = useState(defaultDates.from);
+  const [dateTo, setDateTo] = useState(defaultDates.to);
+  const [search, setSearch] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftDateFilter, setDraftDateFilter] = useState("year");
+  const [draftDateFrom, setDraftDateFrom] = useState(defaultDates.from);
+  const [draftDateTo, setDraftDateTo] = useState(defaultDates.to);
+  const [draftSearch, setDraftSearch] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -78,13 +144,12 @@ export default function ReportsPage() {
   const [selectedReservation, setSelectedReservation] = useState(null);
 
   const activeDateParams = useMemo(() => {
-    if (dateFilter !== "custom") return { dateFilter };
     return {
       dateFilter: "all",
-      dateFrom: customFrom,
-      dateTo: customTo,
+      dateFrom,
+      dateTo,
     };
-  }, [customFrom, customTo, dateFilter]);
+  }, [dateFrom, dateTo]);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -94,16 +159,20 @@ export default function ReportsPage() {
         getAdminReservationsPage({
           page,
           pageSize: rowsPerPage,
-          status: salesReservationStatuses,
+          status,
+          search,
           ...activeDateParams,
         }),
         getAdminReservationsPage({
           page: 0,
           pageSize: 1000,
-          status: salesReservationStatuses,
+          status,
+          search,
           ...activeDateParams,
         }),
-        getWalkInSalesSummary(activeDateParams),
+        reportConfig.showFinancialCards
+          ? getWalkInSalesSummary(activeDateParams)
+          : Promise.resolve({ total: 0, count: 0 }),
       ]);
 
       const totals = totalsData.reservations.reduce(
@@ -133,7 +202,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeDateParams, page, rowsPerPage]);
+  }, [activeDateParams, page, reportConfig.showFinancialCards, rowsPerPage, search, status]);
 
   useEffect(() => {
     async function requireSession() {
@@ -158,10 +227,57 @@ export default function ReportsPage() {
     router.push("/admin");
   };
 
+  const handleOpenFilters = () => {
+    setDraftDateFilter(dateFilter);
+    setDraftDateFrom(dateFrom);
+    setDraftDateTo(dateTo);
+    setDraftSearch(search);
+    setFilterOpen(true);
+  };
+
+  const handleCloseFilters = () => {
+    setFilterOpen(false);
+  };
+
   const handleDateFilterChange = (event, value) => {
     if (!value) return;
-    setDateFilter(value);
+    const range = getQuickDateRange(value);
+    setDraftDateFilter(value);
+    setDraftDateFrom(range.from);
+    setDraftDateTo(range.to);
+  };
+
+  const handleDateRangeChange = (field, value) => {
+    if (field === "from") {
+      setDraftDateFrom(value);
+    } else {
+      setDraftDateTo(value);
+    }
+    setDraftDateFilter("custom");
+  };
+
+  const handleSearchFilters = () => {
+    setDateFilter(draftDateFilter);
+    setDateFrom(draftDateFrom);
+    setDateTo(draftDateTo);
+    setSearch(draftSearch.trim());
     setPage(0);
+    setFilterOpen(false);
+  };
+
+  const handleResetFilters = () => {
+  const range = getQuickDateRange("year");
+
+    setDateFilter("year");
+    setDateFrom(range.from);
+    setDateTo(range.to);
+    setSearch("");
+    setDraftDateFilter("year");
+    setDraftDateFrom(range.from);
+    setDraftDateTo(range.to);
+    setDraftSearch("");
+    setPage(0);
+    setFilterOpen(false);
   };
 
   const handleReservationUpdated = (nextReservation) => {
@@ -171,94 +287,94 @@ export default function ReportsPage() {
     )));
   };
 
-  const moneyCards = [
+  const moneyCards = reportConfig.showFinancialCards ? [
     { label: "Gross sales", value: formatMoney(financials.grossSales) },
     { label: "Collected", value: formatMoney(financials.collected) },
     { label: "Walk-in sales", value: formatMoney(financials.walkInSales) },
     financials.refunds > 0 ? { label: "Refunds", value: formatMoney(financials.refunds) } : null,
     { label: "Open balance", value: formatMoney(financials.balance) },
-  ].filter(Boolean);
-
+  ].filter(Boolean) : [];
+  const hasActiveFilters = !isDefaultFilter({
+    dateFilter,
+    dateFrom,
+    dateTo,
+    search,
+  });
   return (
     <AdminLayout loading={loading} onSignOut={handleLogout}>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack spacing={3}>
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              Sales Summary
+              {reportConfig.title}
             </Typography>
-            <Typography color="text.secondary">Reservation, walk-in sales, and payment summary by date range.</Typography>
+            <Typography color="text.secondary">
+              {reportConfig.description}
+            </Typography>
           </Box>
 
           <Paper elevation={1} sx={{ p: 2 }}>
-            <Stack spacing={2}>
-              <ToggleButtonGroup
-                value={dateFilter}
-                exclusive
-                onChange={handleDateFilterChange}
-                size="small"
-                sx={{
-                  maxWidth: "100%",
-                  overflowX: "auto",
-                  "& .MuiToggleButton-root": {
-                    px: 1.5,
-                    textTransform: "none",
-                    whiteSpace: "nowrap",
-                  },
-                }}
+            <Box
+              sx={{
+                alignItems: { xs: "stretch", sm: "center" },
+                display: "grid",
+                gap: 2,
+                gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) auto" },
+              }}
+            >
+              <Box>
+                <Typography sx={{ fontWeight: 700 }}>Date range</Typography>
+                <Typography color="text.secondary" variant="body2">
+                  {moment(dateFrom).format("MMM D, YYYY")} -{" "}
+                  {moment(dateTo).format("MMM D, YYYY")}
+                  {search ? ` / ${search}` : ""}
+                </Typography>
+              </Box>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ justifyContent: { xs: "flex-start", sm: "flex-end" } }}
               >
-                <ToggleButton value="day">Today</ToggleButton>
-                <ToggleButton value="month">This month</ToggleButton>
-                <ToggleButton value="year">This year</ToggleButton>
-                <ToggleButton value="custom">Custom</ToggleButton>
-              </ToggleButtonGroup>
-
-              {dateFilter === "custom" && (
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                  <TextField
-                    label="From"
-                    type="date"
-                    value={customFrom}
-                    onChange={(event) => {
-                      setCustomFrom(event.target.value);
-                      setPage(0);
-                    }}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                  />
-                  <TextField
-                    label="To"
-                    type="date"
-                    value={customTo}
-                    onChange={(event) => {
-                      setCustomTo(event.target.value);
-                      setPage(0);
-                    }}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                  />
-                </Stack>
-              )}
-            </Stack>
+                {hasActiveFilters && (
+                  <Button variant="text" onClick={handleResetFilters}>
+                    Reset
+                  </Button>
+                )}
+                <Button variant="outlined" onClick={handleOpenFilters}>
+                  Filter
+                </Button>
+              </Stack>
+            </Box>
           </Paper>
 
           {error && <Alert severity="error">{error}</Alert>}
 
-          <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" } }}>
-            {moneyCards.map((card) => (
-              <Paper key={card.label} elevation={1} sx={{ p: 2.5 }}>
-                <Typography color="text.secondary">{card.label}</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
-                  {card.value}
-                </Typography>
-              </Paper>
-            ))}
-          </Box>
+          {moneyCards.length > 0 && (
+            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" } }}>
+              {moneyCards.map((card) => (
+                <Paper key={card.label} elevation={1} sx={{ p: 2.5 }}>
+                  <Typography color="text.secondary">{card.label}</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
+                    {card.value}
+                  </Typography>
+                </Paper>
+              ))}
+            </Box>
+          )}
 
           <TableContainer component={Paper} elevation={1}>
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
+            <Box
+              sx={{
+                alignItems: "center",
+                borderBottom: 1,
+                borderColor: "divider",
+                display: "flex",
+                gap: 2,
+                p: 2,
+              }}
+            >
               <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                Guest
+                {reportConfig.tableTitle}
               </Typography>
             </Box>
             <Table sx={{ minWidth: financials.refunds > 0 ? 1100 : 1000 }}>
@@ -306,7 +422,7 @@ export default function ReportsPage() {
                   <TableRow>
                     <TableCell colSpan={financials.refunds > 0 ? 9 : 8}>
                       <Typography align="center" sx={{ py: 4 }}>
-                        No reservations found for this date range.
+                        {reportConfig.emptyMessage}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -334,6 +450,82 @@ export default function ReportsPage() {
         onClose={() => setSelectedReservation(null)}
         onReservationUpdated={handleReservationUpdated}
       />
+      <Dialog open={filterOpen} onClose={handleCloseFilters} fullWidth maxWidth="xs">
+        <DialogTitle>Filter report</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <ToggleButtonGroup
+              value={draftDateFilter}
+              exclusive
+              onChange={handleDateFilterChange}
+              size="small"
+              sx={{
+                maxWidth: "100%",
+                overflowX: "auto",
+                "& .MuiToggleButton-root": {
+                  px: 1.5,
+                  textTransform: "none",
+                  whiteSpace: "nowrap",
+                },
+              }}
+            >
+              <ToggleButton value="day">Today</ToggleButton>
+              <ToggleButton value="month">This month</ToggleButton>
+              <ToggleButton value="year">This year</ToggleButton>
+              <ToggleButton value="custom">Custom range</ToggleButton>
+            </ToggleButtonGroup>
+
+            <Stack spacing={2}>
+              <TextField
+                label="Customer name or reference"
+                value={draftSearch}
+                onChange={(event) => setDraftSearch(event.target.value)}
+                placeholder="Search guest or reservation reference"
+                fullWidth
+              />
+              <TextField
+                label="From"
+                type="date"
+                value={draftDateFrom}
+                onChange={(event) =>
+                  handleDateRangeChange("from", event.target.value)
+                }
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <TextField
+                label="To"
+                type="date"
+                value={draftDateTo}
+                onChange={(event) =>
+                  handleDateRangeChange("to", event.target.value)
+                }
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ min: draftDateFrom || undefined }}
+                fullWidth
+              />
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          {hasActiveFilters && (
+            <Button onClick={handleResetFilters}>Reset</Button>
+          )}
+          <Box sx={{ flexGrow: 1 }} />
+          <Button onClick={handleCloseFilters}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSearchFilters}
+            disabled={
+              !draftDateFrom ||
+              !draftDateTo ||
+              new Date(draftDateTo) < new Date(draftDateFrom)
+            }
+          >
+            Search
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AdminLayout>
   );
 }

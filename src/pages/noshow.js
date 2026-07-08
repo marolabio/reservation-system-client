@@ -1,14 +1,5 @@
-import ReservationQueuePage from "../components/reservation/ReservationQueuePage";
+import ReportsPage from "../components/reports/ReportsPage";
 
 export default function NoShowPage() {
-  return (
-    <ReservationQueuePage
-      title="No-show reservations"
-      status="no_show"
-      emptyMessage="No no-show reservations."
-      hideTitleCount
-      hideFinancials
-      showStayNights
-    />
-  );
+  return <ReportsPage status="no_show" />;
 }

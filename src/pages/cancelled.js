@@ -1,14 +1,5 @@
-import ReservationQueuePage from "../components/reservation/ReservationQueuePage";
+import ReportsPage from "../components/reports/ReportsPage";
 
 export default function CancelledPage() {
-  return (
-    <ReservationQueuePage
-      title="Cancelled reservations"
-      status="cancelled"
-      emptyMessage="No cancelled reservations."
-      hideTitleCount
-      hideFinancials
-      showStayNights
-    />
-  );
+  return <ReportsPage status="cancelled" />;
 }
