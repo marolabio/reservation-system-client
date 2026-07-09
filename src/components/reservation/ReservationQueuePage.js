@@ -288,10 +288,11 @@ export default function ReservationQueuePage({
               component="form"
               onSubmit={handleSearchSubmit}
               sx={{
-                alignItems: "center",
+                alignItems: { xs: "stretch", sm: "center" },
                 borderBottom: "1px solid",
                 borderColor: "divider",
                 display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
                 gap: 1,
                 p: 2,
               }}
@@ -309,6 +310,7 @@ export default function ReservationQueuePage({
                 variant="contained"
                 startIcon={<SearchIcon />}
                 disabled={loading}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Search
               </Button>
@@ -318,6 +320,7 @@ export default function ReservationQueuePage({
                 startIcon={<RestartAltIcon />}
                 onClick={handleReset}
                 disabled={loading}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Reset
               </Button>

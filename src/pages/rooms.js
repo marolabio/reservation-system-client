@@ -385,9 +385,11 @@ export default function RoomsPage() {
               component="form"
               onSubmit={handleSearchSubmit}
               sx={{
+                alignItems: { xs: "stretch", sm: "center" },
                 borderBottom: 1,
                 borderColor: "divider",
                 display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
                 gap: 1,
                 p: 2,
               }}
@@ -396,7 +398,7 @@ export default function RoomsPage() {
                 type="button"
                 variant="contained"
                 onClick={handleOpenAdd}
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, width: { xs: "100%", sm: "auto" } }}
               >
                 Add room
               </Button>
@@ -412,7 +414,7 @@ export default function RoomsPage() {
                 variant="contained"
                 startIcon={<SearchIcon />}
                 disabled={loading}
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, width: { xs: "100%", sm: "auto" } }}
               >
                 Search
               </Button>
@@ -422,7 +424,7 @@ export default function RoomsPage() {
                 startIcon={<RestartAltIcon />}
                 disabled={loading}
                 onClick={handleResetFilters}
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, width: { xs: "100%", sm: "auto" } }}
               >
                 Reset
               </Button>

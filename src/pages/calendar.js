@@ -225,7 +225,12 @@ export default function CalendarPage() {
             alignItems={{ xs: "stretch", sm: "center" }}
             spacing={2}
           >
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ overflowX: "auto", pb: { xs: 0.5, sm: 0 } }}
+            >
               <Button
                 size="small"
                 variant="outlined"
@@ -252,7 +257,7 @@ export default function CalendarPage() {
                 Next
               </Button>
             </Stack>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, textAlign: { xs: "center", sm: "right" } }}>
               {currentMonth.format("MMMM YYYY")}
             </Typography>
           </Stack>
@@ -387,7 +392,7 @@ export default function CalendarPage() {
                     cursor: "pointer",
                     font: "inherit",
                     minHeight: { xs: 92, md: 112 },
-                    p: 1,
+                    p: { xs: 0.5, sm: 1 },
                     borderRight: "1px solid",
                     borderBottom: "1px solid",
                     borderTop: 0,
@@ -433,6 +438,7 @@ export default function CalendarPage() {
                           border: "1px solid",
                           borderColor: "primary.light",
                           borderRadius: 1,
+                          display: { xs: "none", sm: "block" },
                           px: 0.75,
                           py: 0.5,
                         }}
@@ -454,9 +460,7 @@ export default function CalendarPage() {
                       </Box>
                     )}
                     {dayBookings.length > 2 && (
-                      <Typography
-                        sx={{ color: "text.secondary", fontSize: 10.5 }}
-                      >
+                      <Typography sx={{ color: "text.secondary", display: { xs: "none", sm: "block" }, fontSize: 10.5 }}>
                         Tap to view all
                       </Typography>
                     )}
@@ -517,7 +521,10 @@ export default function CalendarPage() {
                   >
                     <Box
                       sx={{
+                        alignItems: { xs: "flex-start", sm: "center" },
                         display: "flex",
+                        flexDirection: { xs: "column", sm: "row" },
+                        gap: 1,
                         justifyContent: "space-between",
                         width: "100%",
                       }}
@@ -536,11 +543,12 @@ export default function CalendarPage() {
                         color={statusColors[reservation.status] || "default"}
                         size="small"
                       />
-                      <Box sx={{ display: "flex" }}>
+                      <Box sx={{ display: "flex", width: { xs: "100%", sm: "auto" } }}>
                         <Button
                           size="small"
                           variant="outlined"
                           onClick={() => setSelectedReservation(reservation)}
+                          fullWidth
                         >
                           View
                         </Button>

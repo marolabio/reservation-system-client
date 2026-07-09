@@ -20,6 +20,7 @@ import {
   Toolbar,
   List,
   Box,
+  useMediaQuery,
 } from "@mui/material";
 import { logout } from "../../actions/auth";
 
@@ -27,7 +28,13 @@ const drawerWidth = 240;
 
 function SideBar({ logout, title }) {
   const router = useRouter();
+  const isMobile = useMediaQuery((theme) => theme.breakpoints.down("sm"));
   const [open, setOpen] = React.useState(true);
+
+  React.useEffect(() => {
+    setOpen(!isMobile);
+  }, [isMobile]);
+
   const handleDrawerOpen = () => {
     setOpen(true);
   };
@@ -47,7 +54,7 @@ function SideBar({ logout, title }) {
               ? theme.transitions.duration.enteringScreen
               : theme.transitions.duration.leavingScreen,
           }),
-          ...(open && {
+          ...(open && !isMobile && {
             marginLeft: drawerWidth,
             width: `calc(100% - ${drawerWidth}px)`,
           }),
@@ -83,10 +90,10 @@ function SideBar({ logout, title }) {
         </Toolbar>
       </AppBar>
       <Drawer
-        variant="permanent"
+        variant={isMobile ? "temporary" : "permanent"}
         PaperProps={{
           sx: (theme) => ({
-            position: "relative",
+            position: isMobile ? "fixed" : "relative",
             whiteSpace: "nowrap",
             width: drawerWidth,
             transition: theme.transitions.create("width", {
@@ -105,6 +112,7 @@ function SideBar({ logout, title }) {
           }),
         }}
         open={open}
+        onClose={handleDrawerClose}
       >
         <Box
           sx={(theme) => ({

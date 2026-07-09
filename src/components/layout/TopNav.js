@@ -20,7 +20,16 @@ export default function TopNav({ admin = false, onSignOut }) {
   return (
     <AppBar position="sticky" color="inherit" elevation={1}>
       <Container maxWidth="xl">
-        <Toolbar disableGutters sx={{ minHeight: 64, gap: 2 }}>
+        <Toolbar
+          disableGutters
+          sx={{
+            alignItems: { xs: "stretch", sm: "center" },
+            flexDirection: { xs: "column", sm: "row" },
+            gap: { xs: 1, sm: 2 },
+            minHeight: 64,
+            py: { xs: 1.25, sm: 0 },
+          }}
+        >
           <Typography
             component="a"
             href="/admin"
@@ -28,15 +37,24 @@ export default function TopNav({ admin = false, onSignOut }) {
               color: "text.primary",
               fontWeight: 800,
               textDecoration: "none",
+              textAlign: { xs: "center", sm: "left" },
               whiteSpace: "nowrap",
             }}
           >
             Hotel Reservations
           </Typography>
 
-          <Box sx={{ flexGrow: 1 }} />
+          <Box sx={{ display: { xs: "none", sm: "block" }, flexGrow: 1 }} />
 
-          <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Box
+            sx={{
+              alignItems: "center",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 1,
+              justifyContent: { xs: "center", sm: "flex-end" },
+            }}
+          >
             {links.map((link) => (
               <Button
                 key={link.href}

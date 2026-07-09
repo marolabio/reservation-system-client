@@ -525,7 +525,7 @@ export default function WalkInSalesPage() {
                         display: "grid",
                         gap: 1,
                         gridTemplateColumns: {
-                          xs: "minmax(0, 1fr) 84px 36px",
+                          xs: "minmax(0, 1fr) 72px 36px",
                           sm: "minmax(0, 1fr) 96px 36px",
                         },
                       }}
@@ -743,7 +743,7 @@ export default function WalkInSalesPage() {
                           alignItems: "center",
                           display: "grid",
                           gap: 1,
-                          gridTemplateColumns: "minmax(0, 1fr) 64px 120px",
+                          gridTemplateColumns: { xs: "minmax(0, 1fr) 48px 92px", sm: "minmax(0, 1fr) 64px 120px" },
                         }}
                       >
                         <Typography>{item.description}</Typography>
@@ -776,7 +776,7 @@ export default function WalkInSalesPage() {
           )}
         </DialogContent>
         {viewSale && (
-          <DialogActions sx={{ justifyContent: "space-between", px: 3, py: 2 }}>
+          <DialogActions sx={{ flexDirection: { xs: "column", sm: "row" }, gap: 1, justifyContent: "space-between", px: 3, py: 2 }}>
             <Button
               color="error"
               startIcon={<DeleteIcon />}
@@ -785,14 +785,16 @@ export default function WalkInSalesPage() {
                 setDeleteSale(viewSale);
                 setViewSale(null);
               }}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
             >
               Delete
             </Button>
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
               <Button
                 startIcon={<PrintIcon />}
                 variant="outlined"
                 onClick={() => printWalkInReceipt(viewSale)}
+                sx={{ flex: 1 }}
               >
                 Print
               </Button>
@@ -800,6 +802,7 @@ export default function WalkInSalesPage() {
                 startIcon={<EditIcon />}
                 variant="outlined"
                 onClick={() => handleOpenEdit(viewSale)}
+                sx={{ flex: 1 }}
               >
                 Edit
               </Button>

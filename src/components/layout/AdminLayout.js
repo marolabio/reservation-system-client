@@ -1,6 +1,7 @@
 import React from "react";
-import { Box, Button, Divider, LinearProgress, Stack, Tooltip, Typography } from "@mui/material";
+import { Box, Button, Divider, IconButton, LinearProgress, Stack, Tooltip, Typography, useMediaQuery } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import MenuIcon from "@mui/icons-material/Menu";
 import CategoryIcon from "@mui/icons-material/Category";
 import HotelIcon from "@mui/icons-material/Hotel";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -45,6 +46,13 @@ const navSections = [
 
 export default function AdminLayout({ children, loading = false, onSignOut }) {
   const router = useRouter();
+  const shouldStartCollapsed = useMediaQuery((theme) => theme.breakpoints.down("md"));
+  const [sideNavOpen, setSideNavOpen] = React.useState(true);
+  const navItems = navSections.flatMap((section) => section.items);
+
+  React.useEffect(() => {
+    setSideNavOpen(!shouldStartCollapsed);
+  }, [shouldStartCollapsed]);
 
   return (
     <Box sx={{ bgcolor: "background.default", display: "flex", minHeight: "100vh" }}>
@@ -55,24 +63,43 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
           bgcolor: "background.paper",
           borderRight: "1px solid",
           borderColor: "divider",
-          display: "flex",
+          display: { xs: "none", sm: "flex" },
           flexDirection: "column",
           flexShrink: 0,
           minHeight: "100vh",
           position: "sticky",
           top: 0,
-          width: { xs: 72, md: 248 },
+          transition: (theme) =>
+            theme.transitions.create("width", {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.shortest,
+            }),
+          width: sideNavOpen ? 248 : 72,
         }}
       >
-        <Box sx={{ px: { xs: 1, md: 2 }, py: 2.25 }}>
+        <Box
+          sx={{
+            alignItems: "center",
+            display: "flex",
+            gap: 1,
+            justifyContent: sideNavOpen ? "space-between" : "center",
+            px: sideNavOpen ? 2 : 1,
+            py: 1.25,
+            minHeight: 65,
+          }}
+        >
           <Typography
             component="a"
             href="/bookings"
             sx={{
               color: "text.primary",
-              display: { xs: "none", md: "block" },
+              display: sideNavOpen ? "block" : "none",
               fontWeight: 800,
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
               textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
           >
             Hotel Reservations
@@ -82,7 +109,7 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
             href="/bookings"
             sx={{
               color: "text.primary",
-              display: { xs: "block", md: "none" },
+              display: sideNavOpen ? "none" : "block",
               fontWeight: 800,
               textAlign: "center",
               textDecoration: "none",
@@ -90,6 +117,19 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
           >
             HR
           </Typography>
+          <Tooltip title={sideNavOpen ? "Collapse navigation" : "Expand navigation"} placement="right">
+            <IconButton
+              aria-label={sideNavOpen ? "Collapse navigation" : "Expand navigation"}
+              onClick={() => setSideNavOpen((current) => !current)}
+              size="small"
+              sx={{
+                flexShrink: 0,
+                ml: sideNavOpen ? 1 : 0,
+              }}
+            >
+              <MenuIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
 
         <Divider />
@@ -100,7 +140,7 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
               <Typography
                 sx={{
                   color: "text.secondary",
-                  display: { xs: "none", md: "block" },
+                  display: sideNavOpen ? "block" : "none",
                   fontSize: 12,
                   fontWeight: 800,
                   px: 1.5,
@@ -128,14 +168,14 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
                         sx={{
                           borderRadius: 1,
                           color: active ? "primary.contrastText" : "text.primary",
-                          justifyContent: { xs: "center", md: "flex-start" },
+                          justifyContent: sideNavOpen ? "flex-start" : "center",
                           minHeight: 44,
                           minWidth: 0,
-                          px: { xs: 1, md: 1.5 },
+                          px: sideNavOpen ? 1.5 : 1,
                           textTransform: "none",
                           bgcolor: active ? "primary.main" : "transparent",
                           "& .MuiButton-startIcon": {
-                            m: { xs: 0, md: "0 8px 0 0" },
+                            m: sideNavOpen ? "0 8px 0 0" : 0,
                           },
                           "&:hover": {
                             bgcolor: active ? "primary.dark" : "action.hover",
@@ -143,7 +183,18 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
                         }}
                         fullWidth
                       >
-                        <Box component="span" sx={{ display: { xs: "none", md: "inline" }, flexGrow: 1, textAlign: "left" }}>
+                        <Box
+                          component="span"
+                          sx={{
+                            display: sideNavOpen ? "inline" : "none",
+                            flexGrow: 1,
+                            minWidth: 0,
+                            overflow: "hidden",
+                            textAlign: "left",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {item.label}
                         </Box>
                       </Button>
@@ -163,18 +214,18 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
               sx={{
                 borderRadius: 1,
                 color: "text.primary",
-                justifyContent: { xs: "center", md: "flex-start" },
+                justifyContent: sideNavOpen ? "flex-start" : "center",
                 minHeight: 44,
                 minWidth: 0,
-                px: { xs: 1, md: 1.5 },
+                px: sideNavOpen ? 1.5 : 1,
                 textTransform: "none",
                 "& .MuiButton-startIcon": {
-                  m: { xs: 0, md: "0 8px 0 0" },
+                  m: sideNavOpen ? "0 8px 0 0" : 0,
                 },
               }}
               fullWidth
             >
-              <Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+              <Box component="span" sx={{ display: sideNavOpen ? "inline" : "none" }}>
                 Sign out
               </Box>
             </Button>
@@ -182,7 +233,16 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
         </Box>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, position: "relative" }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          pb: { xs: 9, sm: 0 },
+          position: "relative",
+          width: "100%",
+        }}
+      >
         <Box
           sx={{
             height: 4,
@@ -196,6 +256,101 @@ export default function AdminLayout({ children, loading = false, onSignOut }) {
           {loading && <LinearProgress />}
         </Box>
         {children}
+      </Box>
+
+      <Box
+        component="nav"
+        sx={{
+          bgcolor: "background.paper",
+          borderTop: "1px solid",
+          borderColor: "divider",
+          bottom: 0,
+          boxShadow: 3,
+          display: { xs: "flex", sm: "none" },
+          gap: 0.5,
+          left: 0,
+          overflowX: "auto",
+          px: 0.75,
+          py: 0.75,
+          position: "fixed",
+          right: 0,
+          zIndex: (theme) => theme.zIndex.appBar + 1,
+        }}
+      >
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = router.pathname === item.href;
+
+          return (
+            <Button
+              key={item.href}
+              href={item.href}
+              sx={{
+                borderRadius: 1,
+                color: active ? "primary.contrastText" : "text.primary",
+                flex: "0 0 76px",
+                minHeight: 58,
+                minWidth: 0,
+                px: 0.75,
+                py: 0.5,
+                textTransform: "none",
+                bgcolor: active ? "primary.main" : "transparent",
+                "&:hover": {
+                  bgcolor: active ? "primary.dark" : "action.hover",
+                },
+              }}
+            >
+              <Stack spacing={0.25} alignItems="center" sx={{ minWidth: 0 }}>
+                <Icon fontSize="small" />
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    lineHeight: 1.1,
+                    maxWidth: "100%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {item.label}
+                </Typography>
+              </Stack>
+            </Button>
+          );
+        })}
+        <Button
+          onClick={onSignOut}
+          sx={{
+            borderRadius: 1,
+            color: "text.primary",
+            flex: "0 0 76px",
+            minHeight: 58,
+            minWidth: 0,
+            px: 0.75,
+            py: 0.5,
+            textTransform: "none",
+          }}
+        >
+          <Stack spacing={0.25} alignItems="center" sx={{ minWidth: 0 }}>
+            <LogoutIcon fontSize="small" />
+            <Typography
+              component="span"
+              sx={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                lineHeight: 1.1,
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Sign out
+            </Typography>
+          </Stack>
+        </Button>
       </Box>
     </Box>
   );
