@@ -753,6 +753,10 @@ export async function updateReservationStatus(id, status) {
     throw new Error("Checked-out reservations cannot be checked in again.");
   }
 
+  if (status === "checked_in" && financials.balance > 0) {
+    throw new Error("Full payment is required before check-in.");
+  }
+
   if (status === "checked_out" && financials.balance > 0) {
     throw new Error("Full payment is required before checkout.");
   }

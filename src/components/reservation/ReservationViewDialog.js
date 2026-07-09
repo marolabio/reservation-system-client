@@ -74,12 +74,6 @@ const emptyStayForm = {
   checkout: "",
 };
 
-const statusChangeOptions = [
-  { value: "checked_in", label: "Check in" },
-  { value: "no_show", label: "No show" },
-  { value: "cancelled", label: "Cancel" },
-];
-
 function primaryStatusFromHref(href = "") {
   if (href === "confirm") return "confirmed";
   if (href === "check-in") return "checked_in";
@@ -163,8 +157,8 @@ export default function ReservationViewDialog({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelForm, setCancelForm] = useState(emptyCancelForm);
-  const [statusChangeOpen, setStatusChangeOpen] = useState(false);
-  const [statusChangeTarget, setStatusChangeTarget] = useState("");
+  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [noShowSaving, setNoShowSaving] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutSaving, setCheckoutSaving] = useState(false);
   const [roomEditorOpen, setRoomEditorOpen] = useState(false);
@@ -234,11 +228,10 @@ export default function ReservationViewDialog({
         : 0),
     0,
   );
-  const canChangeStatus =
-    currentReservation && currentReservation.status !== "checked_out";
-  const availableStatusChangeOptions = statusChangeOptions.filter(
-    (option) => option.value !== currentReservation?.status,
+  const canCancelReservation = ["pending", "confirmed"].includes(
+    currentReservation?.status,
   );
+  const canMarkNoShow = currentReservation?.status === "confirmed";
   const canPrintReservation = [
     "confirmed",
     "checked_out",
@@ -260,6 +253,12 @@ export default function ReservationViewDialog({
           href: "confirm",
           disabled: (financials?.netPaid || 0) <= 0,
         }
+      : currentReservation?.status === "confirmed"
+        ? {
+            label: "Check in",
+            href: "check-in",
+            disabled: (financials?.balance || 0) > 0,
+          }
       : currentReservation?.status === "checked_in"
           ? {
               label: "Check out",
@@ -269,13 +268,16 @@ export default function ReservationViewDialog({
           : null;
   const paymentAction =
     currentReservation?.status === "pending" && (financials?.netPaid || 0) <= 0
-      ? { paymentType: "partial_payment", target: "" }
+      ? { paymentType: "partial_payment", target: "", disabled: false }
       : currentReservation?.status === "confirmed" &&
-          (financials?.netPaid || 0) < (financials?.checkInPaymentRequired || 0)
-        ? { paymentType: "partial_payment", target: "check_in" }
-        : currentReservation?.status === "checked_in" &&
-            (financials?.balance || 0) > 0
-          ? { paymentType: "full_payment", target: "" }
+          (financials?.balance || 0) > 0
+        ? { paymentType: "full_payment", target: "check_in", disabled: false }
+        : currentReservation?.status === "checked_in"
+          ? {
+              paymentType: "full_payment",
+              target: "",
+              disabled: (financials?.balance || 0) <= 0,
+            }
           : null;
   const stayPreviewReservation = currentReservation
     ? {
@@ -535,6 +537,7 @@ export default function ReservationViewDialog({
     setCancelForm({
       ...emptyCancelForm,
       refundAmount: canRecordRefund ? String(financials.netPaid) : "",
+      notes: canRecordRefund ? "Cancellation refund" : "",
     });
     setCancelOpen(true);
   };
@@ -543,13 +546,6 @@ export default function ReservationViewDialog({
     if (cancelSaving) return;
     setCancelOpen(false);
     setCancelForm(emptyCancelForm);
-  };
-
-  const handleCancelFormChange = (event) => {
-    setCancelForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
   };
 
   const handleCancelReservation = async () => {
@@ -567,6 +563,28 @@ export default function ReservationViewDialog({
       setError(err.message || "Unable to cancel reservation.");
     } finally {
       setCancelSaving(false);
+    }
+  };
+
+  const closeNoShowModal = () => {
+    if (noShowSaving) return;
+    setNoShowOpen(false);
+  };
+
+  const handleNoShowReservation = async () => {
+    if (!currentReservation) return;
+    setNoShowSaving(true);
+    setError("");
+
+    try {
+      await updateReservationStatus(currentReservation.id, "no_show");
+      await reloadReservation();
+      setNoShowOpen(false);
+      onClose?.();
+    } catch (err) {
+      setError(err.message || "Unable to mark reservation as no-show.");
+    } finally {
+      setNoShowSaving(false);
     }
   };
 
@@ -763,43 +781,6 @@ export default function ReservationViewDialog({
       onClose?.();
     } catch (err) {
       setError(err.message || "Unable to update reservation.");
-    } finally {
-      setActionSaving(false);
-    }
-  };
-
-  const openStatusChangeModal = () => {
-    setStatusChangeTarget(availableStatusChangeOptions[0]?.value || "");
-    setStatusChangeOpen(true);
-  };
-
-  const closeStatusChangeModal = () => {
-    if (actionSaving) return;
-    setStatusChangeOpen(false);
-    setStatusChangeTarget("");
-  };
-
-  const handleChangeStatus = async () => {
-    if (!currentReservation || !statusChangeTarget) return;
-
-    const targetLabel =
-      statusChangeOptions.find((option) => option.value === statusChangeTarget)
-        ?.label || "selected status";
-
-    if (!window.confirm(`Change this reservation status to ${targetLabel}?`)) {
-      return;
-    }
-
-    setActionSaving(true);
-    setError("");
-    try {
-      await updateReservationStatus(currentReservation.id, statusChangeTarget);
-      await reloadReservation();
-      setStatusChangeOpen(false);
-      setStatusChangeTarget("");
-      onClose?.();
-    } catch (err) {
-      setError(err.message || "Unable to update reservation status.");
     } finally {
       setActionSaving(false);
     }
@@ -1565,9 +1546,10 @@ export default function ReservationViewDialog({
           )}
         </DialogContent>
         {currentReservation &&
-          (actionsAvailable || canPrintReservation || canChangeStatus) && (
+          (actionsAvailable || canPrintReservation || canCancelReservation) && (
           <DialogActions
             sx={{
+              alignItems: "center",
               flexWrap: "wrap",
               gap: 1,
               justifyContent: "flex-end",
@@ -1581,22 +1563,28 @@ export default function ReservationViewDialog({
                 variant="outlined"
                 startIcon={<PrintIcon />}
               >
-                {currentReservation.status === "checked_out"
-                  ? "Print receipt"
-                  : currentReservation.status === "no_show"
-                    ? "Print no-show"
-                  : currentReservation.status === "cancelled"
-                    ? "Print cancellation"
-                    : "Print confirmation"}
+                Print
               </Button>
             )}
-            {canChangeStatus && availableStatusChangeOptions.length > 0 && (
+            {canPrintReservation && <Box sx={{ flexGrow: 1 }} />}
+            {canCancelReservation && (
               <Button
-                onClick={openStatusChangeModal}
+                onClick={openCancelModal}
                 variant="outlined"
+                color="error"
                 disabled={actionSaving}
               >
-                Change status
+                Cancel reservation
+              </Button>
+            )}
+            {canMarkNoShow && (
+              <Button
+                onClick={() => setNoShowOpen(true)}
+                variant="outlined"
+                color="warning"
+                disabled={noShowSaving}
+              >
+                No show
               </Button>
             )}
             {paymentAction && (
@@ -1608,6 +1596,7 @@ export default function ReservationViewDialog({
                   )
                 }
                 variant="outlined"
+                disabled={paymentAction.disabled}
               >
                 Record payment
               </Button>
@@ -1623,61 +1612,6 @@ export default function ReservationViewDialog({
             ) : null}
           </DialogActions>
         )}
-      </Dialog>
-
-      <Dialog
-        open={statusChangeOpen}
-        onClose={closeStatusChangeModal}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle sx={{ pr: 6, position: "relative" }}>
-          Change status
-          <DialogCloseButton
-            onClick={closeStatusChangeModal}
-            disabled={actionSaving}
-          />
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Paper variant="outlined" sx={{ p: 1.5 }}>
-              <Typography sx={{ fontWeight: 800 }}>
-                {currentReservation
-                  ? guestName(currentReservation.customers)
-                  : ""}
-              </Typography>
-              <Typography color="text.secondary" variant="body2">
-                Current status{" "}
-                {String(currentReservation?.status || "").replace("_", " ")}
-              </Typography>
-            </Paper>
-            <TextField
-              select
-              label="New status"
-              value={statusChangeTarget}
-              onChange={(event) => setStatusChangeTarget(event.target.value)}
-              fullWidth
-            >
-              {availableStatusChangeOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeStatusChangeModal} disabled={actionSaving}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleChangeStatus}
-            disabled={actionSaving || !statusChangeTarget}
-          >
-            {actionSaving ? "Saving..." : "Confirm change"}
-          </Button>
-        </DialogActions>
       </Dialog>
 
       <Dialog
@@ -2213,6 +2147,52 @@ export default function ReservationViewDialog({
       </Dialog>
 
       <Dialog
+        open={noShowOpen}
+        onClose={closeNoShowModal}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Mark as no-show
+          <DialogCloseButton
+            onClick={closeNoShowModal}
+            disabled={noShowSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography sx={{ fontWeight: 800 }}>
+                {currentReservation
+                  ? guestName(currentReservation.customers)
+                  : ""}
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                Ref {currentReservation ? shortReference(currentReservation.id) : ""}
+              </Typography>
+            </Paper>
+            <Typography color="text.secondary">
+              Mark this confirmed reservation as no-show? This will close the
+              reservation and release the reserved room availability.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeNoShowModal} disabled={noShowSaving}>
+            Keep reservation
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={handleNoShowReservation}
+            disabled={noShowSaving}
+          >
+            {noShowSaving ? "Saving..." : "Mark no-show"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
         open={cancelOpen}
         onClose={closeCancelModal}
         fullWidth
@@ -2237,65 +2217,27 @@ export default function ReservationViewDialog({
                 Net paid {formatMoney(financials?.netPaid)}
               </Typography>
             </Paper>
-            {canRecordRefund ? (
-              <>
-                <TextField
-                  label="Refund amount"
-                  name="refundAmount"
-                  type="number"
-                  value={cancelForm.refundAmount}
-                  onChange={handleCancelFormChange}
-                  inputProps={{
-                    min: 0.01,
-                    max: financials?.netPaid || 0,
-                    step: "0.01",
-                  }}
-                  helperText="Required when there is a refundable amount."
-                  fullWidth
-                />
-                <TextField
-                  select
-                  label="Refund method"
-                  name="method"
-                  value={cancelForm.method}
-                  onChange={handleCancelFormChange}
-                  fullWidth
-                >
-                  {paymentMethods.map((method) => (
-                    <MenuItem key={method.value} value={method.value}>
-                      {method.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </>
-            ) : (
-              <Typography color="text.secondary" variant="body2">
-                No refundable amount.
-              </Typography>
+            <Typography color="text.secondary">
+              Cancel this reservation? This action will move it to cancelled and
+              release the reserved room availability.
+            </Typography>
+            {canRecordRefund && (
+              <Alert severity="info">
+                A refund of {formatMoney(financials?.netPaid)} will be recorded
+                automatically.
+              </Alert>
             )}
-            <TextField
-              label="Cancellation notes"
-              name="notes"
-              value={cancelForm.notes}
-              onChange={handleCancelFormChange}
-              fullWidth
-              multiline
-              minRows={3}
-            />
           </Stack>
         </DialogContent>
         <DialogActions>
+          <Button onClick={closeCancelModal} disabled={cancelSaving}>
+            Keep reservation
+          </Button>
           <Button
             color="error"
             variant="contained"
             onClick={handleCancelReservation}
-            disabled={
-              cancelSaving ||
-              (
-                canRecordRefund &&
-                (!Number.isFinite(Number(cancelForm.refundAmount)) || Number(cancelForm.refundAmount) <= 0)
-              )
-            }
+            disabled={cancelSaving}
           >
             {cancelSaving ? "Cancelling..." : "Cancel reservation"}
           </Button>

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { Avatar, Box, Button, Container, Paper, Stack, TextField, Typography } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
@@ -85,9 +84,6 @@ export default function AdminLoginPage() {
                 </Button>
               </Stack>
             </Box>
-            <Button component={Link} href="/" color="primary">
-              Back to booking
-            </Button>
           </Stack>
         </Paper>
       </Container>

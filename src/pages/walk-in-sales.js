@@ -186,6 +186,7 @@ export default function WalkInSalesPage() {
   const [viewSale, setViewSale] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
+  const [paymentAmountTouched, setPaymentAmountTouched] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleteSale, setDeleteSale] = useState(null);
@@ -249,6 +250,10 @@ export default function WalkInSalesPage() {
   };
 
   const handleFormChange = (event) => {
+    if (event.target.name === "paymentAmount") {
+      setPaymentAmountTouched(true);
+    }
+
     setForm((current) => ({
       ...current,
       [event.target.name]: event.target.value,
@@ -289,14 +294,14 @@ export default function WalkInSalesPage() {
   };
 
   useEffect(() => {
-    if (!addOpen || form.paymentAmount !== "") return;
+    if (!addOpen || paymentAmountTouched) return;
     if (saleTotal <= 0) return;
 
     setForm((current) => ({
       ...current,
       paymentAmount: String(saleTotal),
     }));
-  }, [addOpen, form.paymentAmount, saleTotal]);
+  }, [addOpen, paymentAmountTouched, saleTotal]);
 
   const handleAddItem = () => {
     setForm((current) => ({
@@ -318,11 +323,13 @@ export default function WalkInSalesPage() {
     setEditSale(null);
     setDetailsOpen(false);
     setForm(initialForm);
+    setPaymentAmountTouched(false);
   };
 
   const handleOpenAdd = () => {
     setEditSale(null);
     setForm(initialForm);
+    setPaymentAmountTouched(false);
     setDetailsOpen(false);
     setAddOpen(true);
   };
@@ -331,6 +338,7 @@ export default function WalkInSalesPage() {
     setViewSale(null);
     setEditSale(sale);
     setForm(saleToForm(sale));
+    setPaymentAmountTouched(false);
     setDetailsOpen(Boolean(sale.customer_name || sale.contact_number || sale.notes));
     setAddOpen(true);
   };
@@ -350,6 +358,7 @@ export default function WalkInSalesPage() {
         : await createWalkInSale(form);
       const nextData = await getWalkInSalesPage({ page: 0, pageSize: rowsPerPage });
       setForm(initialForm);
+      setPaymentAmountTouched(false);
       setAddOpen(false);
       setEditSale(null);
       setDetailsOpen(false);
@@ -500,21 +509,6 @@ export default function WalkInSalesPage() {
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>
-              <TextField
-                select
-                label="Payment method"
-                name="paymentMethod"
-                value={form.paymentMethod}
-                onChange={handleFormChange}
-                fullWidth
-              >
-                {paymentMethods.map((method) => (
-                  <MenuItem key={method.value} value={method.value}>
-                    {method.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-
               <Stack spacing={1}>
                 {form.items.map((item, index) => (
                   <Box
@@ -619,6 +613,20 @@ export default function WalkInSalesPage() {
 
               <Box sx={{ borderTop: 1, borderColor: "divider", pt: 1.5 }}>
                 <Stack spacing={1.5}>
+                  <TextField
+                    select
+                    label="Payment method"
+                    name="paymentMethod"
+                    value={form.paymentMethod}
+                    onChange={handleFormChange}
+                    fullWidth
+                  >
+                    {paymentMethods.map((method) => (
+                      <MenuItem key={method.value} value={method.value}>
+                        {method.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                   <TextField
                     label="Payment amount"
                     name="paymentAmount"

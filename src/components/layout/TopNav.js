@@ -3,7 +3,6 @@ import { AppBar, Box, Button, Container, Toolbar, Typography } from "@mui/materi
 import { useRouter } from "next/router";
 
 const guestLinks = [
-  { label: "Book", href: "/" },
   { label: "Admin", href: "/admin" },
 ];
 
@@ -24,7 +23,7 @@ export default function TopNav({ admin = false, onSignOut }) {
         <Toolbar disableGutters sx={{ minHeight: 64, gap: 2 }}>
           <Typography
             component="a"
-            href="/"
+            href="/admin"
             sx={{
               color: "text.primary",
               fontWeight: 800,
