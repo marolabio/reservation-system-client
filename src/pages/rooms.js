@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   Container,
   Dialog,
   DialogActions,
@@ -53,12 +52,6 @@ const initialForm = {
   status: "active",
   imageUrl: "",
   amenityIds: [],
-};
-
-const roomStatusColors = {
-  active: "primary",
-  maintenance: "warning",
-  disabled: "default",
 };
 
 function roomToForm(room) {
@@ -446,35 +439,23 @@ export default function RoomsPage() {
                 {rooms.map((room) => (
                   <TableRow key={room.id} hover sx={{ "& td": { py: 2, verticalAlign: "top" } }}>
                     <TableCell sx={{ minWidth: 260 }}>
-                      <Typography sx={{ fontWeight: 800 }}>{room.name}</Typography>
+                      <Typography>{room.name}</Typography>
                       <Typography color="text.secondary" variant="body2">
                         {room.description || "No description"}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ minWidth: 220 }}>
-                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                        {(room.amenities || []).length ? (
-                          room.amenities.map((amenity) => (
-                            <Chip key={amenity.id} size="small" label={amenity.name} />
-                          ))
-                        ) : (
-                          <Typography color="text.secondary" variant="body2">
-                            None
-                          </Typography>
-                        )}
-                      </Stack>
+                      <Typography color={(room.amenities || []).length ? "text.primary" : "text.secondary"} variant="body2">
+                        {(room.amenities || []).map((amenity) => amenity.name).join(", ") || "None"}
+                      </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={`${room.occupancy} guests`} />
+                      {room.occupancy} guests
                     </TableCell>
                     <TableCell>{room.quantity}</TableCell>
-                    <TableCell sx={{ fontWeight: 800 }}>PHP {Number(room.rate || 0).toLocaleString()}</TableCell>
+                    <TableCell>{Number(room.rate || 0).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Chip
-                        size="small"
-                        color={roomStatusColors[room.status] || "default"}
-                        label={room.status || "active"}
-                      />
+                      {room.status || "active"}
                     </TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography
