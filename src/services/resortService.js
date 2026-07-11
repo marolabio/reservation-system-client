@@ -365,8 +365,8 @@ export async function createReservation(values) {
     return sum + Number(selectedRoom?.occupancy || 0) * Number(requestedRoom.roomQuantity || 0);
   }, 0);
 
-  if (totalCapacity < Number(values.adult)) {
-    throw new Error("Selected rooms cannot fit the number of adults.");
+  if (totalCapacity < getReservationGuestTotal(values)) {
+    throw new Error("Selected rooms cannot fit the number of guests.");
   }
 
   const customerId = crypto.randomUUID();
@@ -456,6 +456,48 @@ export function getReservationFinancials(reservation) {
   };
 }
 
+function isExtraBedAddOn(addOn) {
+  return /extra\s*-?\s*bed/i.test(String(addOn?.description || ""));
+}
+
+function getExtraBedCapacity(addOns = []) {
+  return addOns
+    .filter(isExtraBedAddOn)
+    .reduce((sum, addOn) => sum + Number(addOn.quantity || 0), 0);
+}
+
+function getRoomCapacity(reservedRooms = []) {
+  return reservedRooms.reduce(
+    (sum, reservedRoom) =>
+      sum +
+      Number(reservedRoom.rooms?.occupancy || 0) *
+        Number(reservedRoom.reserved_quantity || 0),
+    0,
+  );
+}
+
+function getReservationGuestTotal(values = {}) {
+  return Number(values.adult || 0) + Number(values.children || 0);
+}
+
+export function getReservationCapacity(reservation) {
+  return (
+    getRoomCapacity(reservation?.reserved_rooms || []) +
+    getExtraBedCapacity(reservation?.reservation_addons || [])
+  );
+}
+
+function validateReservationGuestCapacity(reservation, values = reservation) {
+  const guests = getReservationGuestTotal(values);
+  const capacity = getReservationCapacity(reservation);
+
+  if (capacity < guests) {
+    throw new Error(
+      `Guest count cannot be higher than room capacity (${capacity}). Add an extra bed or change rooms first.`,
+    );
+  }
+}
+
 export async function getAdminReservations() {
   const { data, error } = await supabase
     .from("reservations")
@@ -471,8 +513,8 @@ export async function getAdminReservations() {
         checked_in_at,
         checked_out_at,
         created_at,
-        customers(first_name,last_name,email,contact_number,city_province),
-        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        customers(id,first_name,last_name,email,contact_number,city_province),
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,occupancy,status)),
         reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `
@@ -498,8 +540,8 @@ export async function getAdminReservationById(id) {
         checked_in_at,
         checked_out_at,
         created_at,
-        customers(first_name,last_name,email,contact_number,city_province),
-        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        customers(id,first_name,last_name,email,contact_number,city_province),
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,occupancy,status)),
         reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `
@@ -678,8 +720,8 @@ export async function getAdminReservationsPage({
         checked_in_at,
         checked_out_at,
         created_at,
-        customers(first_name,last_name,email,contact_number,city_province),
-        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        customers(id,first_name,last_name,email,contact_number,city_province),
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,occupancy,status)),
         reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `,
@@ -733,7 +775,7 @@ export async function updateReservationStatus(id, status) {
         checkin,
         checkout,
         status,
-        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,status)),
+        reserved_rooms(id,room_id,reserved_quantity,rooms(id,name,rate,occupancy,status)),
         reservation_addons(id,description,quantity,unit_price,created_at),
         reservation_payments(id,payment_type,amount,method,reference_number,notes,paid_at,created_at)
       `
@@ -963,9 +1005,19 @@ export async function updateReservationAddOn(reservation, addOnId, values) {
     throw new Error("Reservation was not found.");
   }
 
+  const payload = getReservationAddOnPayload(values);
+  const comparableReservation = {
+    ...reservation,
+    reservation_addons: (reservation.reservation_addons || []).map((addOn) =>
+      addOn.id === addOnId ? { ...addOn, ...payload } : addOn,
+    ),
+  };
+
+  validateReservationGuestCapacity(comparableReservation);
+
   const { data, error } = await supabase
     .from("reservation_addons")
-    .update(getReservationAddOnPayload(values))
+    .update(payload)
     .eq("id", addOnId)
     .eq("reservation_id", reservation.id)
     .select()
@@ -979,6 +1031,15 @@ export async function deleteReservationAddOn(reservation, addOnId) {
   if (!reservation?.id) {
     throw new Error("Reservation was not found.");
   }
+
+  const comparableReservation = {
+    ...reservation,
+    reservation_addons: (reservation.reservation_addons || []).filter(
+      (addOn) => addOn.id !== addOnId,
+    ),
+  };
+
+  validateReservationGuestCapacity(comparableReservation);
 
   const { error } = await supabase
     .from("reservation_addons")
@@ -1019,6 +1080,75 @@ export async function cancelReservation(reservation, values = {}) {
   return updateReservationStatus(reservation.id, "cancelled");
 }
 
+export async function updateReservationGuests(reservation, values) {
+  if (!reservation?.id) {
+    throw new Error("Reservation was not found.");
+  }
+
+  if (["checked_out", "cancelled", "no_show"].includes(reservation.status)) {
+    throw new Error("Closed reservations cannot have guest counts changed.");
+  }
+
+  const adult = Number(values.adult);
+  const children = Number(values.children || 0);
+
+  if (!Number.isInteger(adult) || adult < 1) {
+    throw new Error("Enter at least one adult guest.");
+  }
+
+  if (!Number.isInteger(children) || children < 0) {
+    throw new Error("Enter a valid number of children.");
+  }
+
+  validateReservationGuestCapacity(reservation, { adult, children });
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({ adult, children })
+    .eq("id", reservation.id)
+    .select("id,adult,children")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateReservationGuestDetails(reservation, values) {
+  const customerId = reservation?.customers?.id;
+
+  if (!customerId) {
+    throw new Error("Guest details were not found.");
+  }
+
+  if (["checked_out", "cancelled", "no_show"].includes(reservation.status)) {
+    throw new Error("Closed reservations cannot have guest details changed.");
+  }
+
+  const firstName = values.firstName?.trim();
+  const lastName = values.lastName?.trim();
+  const contactNumber = values.contactNumber?.trim();
+
+  if (!firstName || !lastName || !contactNumber) {
+    throw new Error("Enter the guest name and contact number.");
+  }
+
+  const { data, error } = await supabase
+    .from("customers")
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      email: values.email?.trim() || null,
+      contact_number: contactNumber,
+      city_province: values.cityProvince?.trim() || null,
+    })
+    .eq("id", customerId)
+    .select("id,first_name,last_name,email,contact_number,city_province")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function updateReservationRooms(reservation, selectedRooms) {
   if (!reservation?.id) {
     throw new Error("Reservation was not found.");
@@ -1053,13 +1183,14 @@ export async function updateReservationRooms(reservation, selectedRooms) {
     }
   });
 
-  const totalCapacity = requestedRooms.reduce((sum, requestedRoom) => {
+  const roomCapacity = requestedRooms.reduce((sum, requestedRoom) => {
     const selectedRoom = availability.find((room) => room.id === requestedRoom.roomId);
     return sum + Number(selectedRoom?.occupancy || 0) * requestedRoom.roomQuantity;
   }, 0);
+  const totalCapacity = roomCapacity + getExtraBedCapacity(reservation.reservation_addons || []);
 
-  if (totalCapacity < Number(reservation.adult)) {
-    throw new Error("Selected rooms cannot fit the number of adults.");
+  if (totalCapacity < getReservationGuestTotal(reservation)) {
+    throw new Error("Selected rooms cannot fit the number of guests.");
   }
 
   const { error: deleteError } = await supabase

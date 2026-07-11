@@ -138,9 +138,7 @@ export default function AdminBookingPage() {
   );
 
   const availableRooms = rooms.filter((room) => {
-    const matchesCapacity =
-      Number(room.available_quantity) >= Number(roomQuantity) &&
-      Number(room.occupancy) >= Number(adult);
+    const matchesCapacity = Number(room.available_quantity) >= Number(roomQuantity);
     const normalizedFilter = roomFilter.trim().toLowerCase();
 
     if (!matchesCapacity) return false;
@@ -169,6 +167,12 @@ export default function AdminBookingPage() {
     (sum, room) => sum + Number(room.selectedQuantity),
     0,
   );
+  const totalSelectedCapacity = selectedRooms.reduce(
+    (sum, room) =>
+      sum + Number(room.occupancy || 0) * Number(room.selectedQuantity || 0),
+    0,
+  );
+  const totalGuests = Number(adult || 0) + Number(children || 0);
 
   const handleAddRoom = (room) => {
     setSelectedRooms((current) => {
@@ -610,6 +614,12 @@ export default function AdminBookingPage() {
                   </Stack>
 
                   <Divider sx={{ my: 2 }} />
+                  {totalGuests > totalSelectedCapacity && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      Guest total cannot be higher than selected room capacity (
+                      {totalSelectedCapacity}).
+                    </Alert>
+                  )}
                   <Box
                     sx={{
                       alignItems: { xs: "stretch", sm: "flex-end" },
@@ -640,6 +650,10 @@ export default function AdminBookingPage() {
                       <Typography sx={{ fontWeight: 700 }}>
                         {adult} adult{Number(adult) === 1 ? "" : "s"},{" "}
                         {children} child{Number(children) === 1 ? "" : "ren"}
+                      </Typography>
+                      <Typography sx={{ marginRight: 1 }}>Capacity</Typography>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {totalSelectedCapacity} guests
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
@@ -732,7 +746,10 @@ export default function AdminBookingPage() {
                     size="large"
                     fullWidth
                     disabled={
-                      submitting || selectedRooms.length === 0 || nights < 1
+                      submitting ||
+                      selectedRooms.length === 0 ||
+                      nights < 1 ||
+                      totalGuests > totalSelectedCapacity
                     }
                   >
                     {submitting ? "Creating..." : "Create booking"}

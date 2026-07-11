@@ -27,10 +27,13 @@ import {
   deleteReservationAddOn,
   deleteReservationPayment,
   getAdminReservationById,
+  getReservationCapacity,
   getRoomAvailability,
   getReservationFinancials,
   getServiceCatalog,
   updateReservationAddOn,
+  updateReservationGuestDetails,
+  updateReservationGuests,
   updateReservationPayment,
   updateReservationRooms,
   updateReservationStayDates,
@@ -72,6 +75,28 @@ const emptyAddOnForm = {
 const emptyStayForm = {
   checkin: "",
   checkout: "",
+};
+
+const emptyGuestForm = {
+  adult: "1",
+  children: "0",
+};
+
+const emptyGuestDetailsForm = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  contactNumber: "",
+  cityProvince: "",
+};
+
+const summaryLabelSx = {
+  color: "text.primary",
+  fontWeight: 700,
+};
+
+const summaryValueSx = {
+  color: "text.secondary",
 };
 
 function primaryStatusFromHref(href = "") {
@@ -170,6 +195,17 @@ export default function ReservationViewDialog({
   const [stayEditorSaving, setStayEditorSaving] = useState(false);
   const [stayEditorError, setStayEditorError] = useState("");
   const [stayForm, setStayForm] = useState(emptyStayForm);
+  const [guestEditorOpen, setGuestEditorOpen] = useState(false);
+  const [guestEditorSaving, setGuestEditorSaving] = useState(false);
+  const [guestEditorError, setGuestEditorError] = useState("");
+  const [guestForm, setGuestForm] = useState(emptyGuestForm);
+  const [guestDetailsEditorOpen, setGuestDetailsEditorOpen] = useState(false);
+  const [guestDetailsEditorSaving, setGuestDetailsEditorSaving] =
+    useState(false);
+  const [guestDetailsEditorError, setGuestDetailsEditorError] = useState("");
+  const [guestDetailsForm, setGuestDetailsForm] = useState(
+    emptyGuestDetailsForm,
+  );
 
   useEffect(() => {
     setCurrentReservation(reservation);
@@ -207,6 +243,14 @@ export default function ReservationViewDialog({
     currentReservation?.status,
   );
   const canModifyStay = canModifyRooms;
+  const canModifyGuests = canModifyRooms;
+  const canModifyGuestDetails = canModifyRooms;
+  const reservationCapacity = currentReservation
+    ? getReservationCapacity(currentReservation)
+    : 0;
+  const guestFormTotal =
+    Number(guestForm.adult || 0) + Number(guestForm.children || 0);
+  const guestFormExceedsCapacity = guestFormTotal > reservationCapacity;
   const addOnGridColumns = canModifyAddOns
     ? "minmax(180px, 1fr) 80px 120px 130px 96px"
     : "minmax(180px, 1fr) 80px 120px 130px";
@@ -656,6 +700,103 @@ export default function ReservationViewDialog({
     }
   };
 
+  const openGuestEditor = () => {
+    if (!currentReservation) return;
+
+    setGuestForm({
+      adult: String(currentReservation.adult || 1),
+      children: String(currentReservation.children || 0),
+    });
+    setGuestEditorOpen(true);
+    setGuestEditorError("");
+    setError("");
+  };
+
+  const closeGuestEditor = () => {
+    if (guestEditorSaving) return;
+    setGuestEditorOpen(false);
+    setGuestEditorError("");
+    setGuestForm(emptyGuestForm);
+  };
+
+  const handleGuestFormChange = (event) => {
+    const { name, value } = event.target;
+    setGuestForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+    setGuestEditorError("");
+  };
+
+  const handleSaveGuests = async () => {
+    if (!currentReservation) return;
+    setGuestEditorSaving(true);
+    setGuestEditorError("");
+
+    try {
+      await updateReservationGuests(currentReservation, guestForm);
+      await reloadReservation();
+      setGuestEditorOpen(false);
+      setGuestEditorError("");
+      setGuestForm(emptyGuestForm);
+    } catch (err) {
+      setGuestEditorError(err.message || "Unable to update guests.");
+    } finally {
+      setGuestEditorSaving(false);
+    }
+  };
+
+  const openGuestDetailsEditor = () => {
+    if (!currentReservation) return;
+
+    setGuestDetailsForm({
+      firstName: customer.first_name || "",
+      lastName: customer.last_name || "",
+      email: customer.email || "",
+      contactNumber: customer.contact_number || "",
+      cityProvince: customer.city_province || "",
+    });
+    setGuestDetailsEditorOpen(true);
+    setGuestDetailsEditorError("");
+    setError("");
+  };
+
+  const closeGuestDetailsEditor = () => {
+    if (guestDetailsEditorSaving) return;
+    setGuestDetailsEditorOpen(false);
+    setGuestDetailsEditorError("");
+    setGuestDetailsForm(emptyGuestDetailsForm);
+  };
+
+  const handleGuestDetailsFormChange = (event) => {
+    const { name, value } = event.target;
+    setGuestDetailsForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+    setGuestDetailsEditorError("");
+  };
+
+  const handleSaveGuestDetails = async () => {
+    if (!currentReservation) return;
+    setGuestDetailsEditorSaving(true);
+    setGuestDetailsEditorError("");
+
+    try {
+      await updateReservationGuestDetails(currentReservation, guestDetailsForm);
+      await reloadReservation();
+      setGuestDetailsEditorOpen(false);
+      setGuestDetailsEditorError("");
+      setGuestDetailsForm(emptyGuestDetailsForm);
+    } catch (err) {
+      setGuestDetailsEditorError(
+        err.message || "Unable to update guest details.",
+      );
+    } finally {
+      setGuestDetailsEditorSaving(false);
+    }
+  };
+
   const openRoomEditor = async () => {
     if (!currentReservation) return;
 
@@ -663,6 +804,7 @@ export default function ReservationViewDialog({
       id: room.room_id,
       name: room.rooms?.name || "Room",
       rate: room.rooms?.rate || 0,
+      occupancy: room.rooms?.occupancy || 0,
       available_quantity: Number(room.reserved_quantity || 1),
     }));
 
@@ -954,33 +1096,75 @@ export default function ReservationViewDialog({
                     }}
                   >
                     <Stack spacing={1}>
+                      <Box
+                        sx={{
+                          border: 1,
+                          borderColor: "divider",
+                          borderRadius: 1,
+                          p: 1.5,
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Box>
+                          <Stack direction="row" spacing={0.5} alignItems="baseline">
+                            <Typography variant="caption" sx={summaryLabelSx}>
+                              Customer
+                            </Typography>
+                            {canModifyGuestDetails && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={openGuestDetailsEditor}
+                                sx={{
+                                  minWidth: 0,
+                                  p: 0,
+                                  textTransform: "none",
+                                  textDecoration: "underline",
+                                  fontSize: "0.75rem",
+                                  lineHeight: 1,
+                                  "&:hover": {
+                                    textDecoration: "underline",
+                                  },
+                                }}
+                              >
+                                edit
+                              </Button>
+                            )}
+                          </Stack>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            alignItems={{ xs: "flex-start", sm: "center" }}
+                            justifyContent="space-between"
+                          >
+                            <Typography sx={summaryValueSx}>
+                              {guestName(customer)}
+                            </Typography>
+                          </Stack>
+                          </Box>
+                          <Box>
+                          <Typography variant="caption" sx={summaryLabelSx}>
+                            Contact
+                          </Typography>
+                          <Typography variant="body2" sx={summaryValueSx}>
+                            {customer.email || "No email"}
+                          </Typography>
+                          <Typography variant="body2" sx={summaryValueSx}>
+                            {customer.contact_number || "No contact number"}
+                          </Typography>
+                          <Typography variant="body2" sx={summaryValueSx}>
+                            {customer.city_province || "No city/province"}
+                          </Typography>
+                          </Box>
+                        </Stack>
+                        </Box>
                       <Box>
-                        <Typography color="text.secondary" variant="caption">
-                          Guest
-                        </Typography>
-                        <Typography>{guestName(customer)}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography color="text.secondary" variant="caption">
-                          Contact
-                        </Typography>
-                        <Typography variant="body2">
-                          {customer.email || "No email"}
-                        </Typography>
-                        <Typography variant="body2">
-                          {customer.contact_number || "No contact number"}
-                        </Typography>
-                        <Typography variant="body2">
-                          {customer.city_province || "No city/province"}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography color="text.secondary" variant="caption">
+                        <Typography variant="caption" sx={summaryLabelSx}>
                           Status
                         </Typography>
                         <Typography
                           variant="body2"
-                          sx={{ textTransform: "capitalize" }}
+                          sx={{ ...summaryValueSx, textTransform: "capitalize" }}
                         >
                           {String(currentReservation.status || "").replace(
                             "_",
@@ -992,48 +1176,96 @@ export default function ReservationViewDialog({
 
                     <Stack spacing={1}>
                       <Box>
-                        <Typography color="text.secondary" variant="caption">
-                          Stay
-                        </Typography>
+                        <Stack direction="row" spacing={0.5} alignItems="baseline">
+                          <Typography variant="caption" sx={summaryLabelSx}>
+                            Stay
+                          </Typography>
+                          {canModifyStay && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={openStayEditor}
+                              sx={{
+                                minWidth: 0,
+                                p: 0,
+                                textTransform: "none",
+                                textDecoration: "underline",
+                                fontSize: "0.75rem",
+                                lineHeight: 1,
+                                "&:hover": {
+                                  textDecoration: "underline",
+                                },
+                              }}
+                            >
+                              edit
+                            </Button>
+                          )}
+                        </Stack>
                         <Stack
                           direction={{ xs: "column", sm: "row" }}
                           spacing={1}
                           alignItems={{ xs: "flex-start", sm: "center" }}
                         >
-                          <Typography variant="body2">
+                          <Typography variant="body2" sx={summaryValueSx}>
                             {formatDateRange(currentReservation)}
                           </Typography>
-                          {canModifyStay && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={openStayEditor}
-                            >
-                              Edit stay
-                            </Button>
-                          )}
                         </Stack>
                       </Box>
                       <Box>
-                        <Typography color="text.secondary" variant="caption">
+                        <Typography variant="caption" sx={summaryLabelSx}>
                           Nights
                         </Typography>
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={summaryValueSx}>
                           {stayNights} {stayNights === 1 ? "night" : "nights"}
                         </Typography>
                       </Box>
                       <Box>
-                        <Typography color="text.secondary" variant="caption">
-                          Guests
-                        </Typography>
-                        <Typography variant="body2">
-                          {currentReservation.adult || 0} adult
-                          {Number(currentReservation.adult) === 1 ? "" : "s"},{" "}
-                          {currentReservation.children || 0} child
-                          {Number(currentReservation.children) === 1
-                            ? ""
-                            : "ren"}
-                        </Typography>
+                        <Stack direction="row" spacing={0.5} alignItems="baseline">
+                          <Typography variant="caption" sx={summaryLabelSx}>
+                            Guests
+                          </Typography>
+                          {canModifyGuests && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={openGuestEditor}
+                              sx={{
+                                minWidth: 0,
+                                p: 0,
+                                textTransform: "none",
+                                textDecoration: "underline",
+                                fontSize: "0.75rem",
+                                lineHeight: 1,
+                                "&:hover": {
+                                  textDecoration: "underline",
+                                },
+                              }}
+                            >
+                              edit
+                            </Button>
+                          )}
+                        </Stack>
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          spacing={1}
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                        >
+                          <Box>
+                            <Typography variant="body2" sx={summaryValueSx}>
+                              {currentReservation.adult || 0} adult
+                              {Number(currentReservation.adult) === 1
+                                ? ""
+                                : "s"}
+                              , {currentReservation.children || 0} child
+                              {Number(currentReservation.children) === 1
+                                ? ""
+                                : "ren"}
+                            </Typography>
+                            <Typography color="text.secondary" variant="caption">
+                              Capacity {reservationCapacity} guests
+                            </Typography>
+                          </Box>
+                        </Stack>
                       </Box>
                     </Stack>
 
@@ -1721,6 +1953,155 @@ export default function ReservationViewDialog({
             }
           >
             {stayEditorSaving ? "Saving..." : "Save stay"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={guestEditorOpen}
+        onClose={closeGuestEditor}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Edit guests
+          <DialogCloseButton
+            onClick={closeGuestEditor}
+            disabled={guestEditorSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {guestEditorError && (
+              <Alert severity="error">{guestEditorError}</Alert>
+            )}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Adults"
+                name="adult"
+                type="number"
+                value={guestForm.adult}
+                onChange={handleGuestFormChange}
+                inputProps={{ min: 1, step: 1 }}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Children"
+                name="children"
+                type="number"
+                value={guestForm.children}
+                onChange={handleGuestFormChange}
+                inputProps={{ min: 0, step: 1 }}
+                fullWidth
+                required
+              />
+            </Stack>
+            {guestFormExceedsCapacity && (
+              <Alert severity="error">
+                Guest total cannot exceed total capacity ({reservationCapacity}).
+              </Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeGuestEditor} disabled={guestEditorSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveGuests}
+            disabled={
+              guestEditorSaving ||
+              !guestForm.adult ||
+              guestFormTotal < 1 ||
+              guestFormExceedsCapacity
+            }
+          >
+            {guestEditorSaving ? "Saving..." : "Save guests"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={guestDetailsEditorOpen}
+        onClose={closeGuestDetailsEditor}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ pr: 6, position: "relative" }}>
+          Edit guest details
+          <DialogCloseButton
+            onClick={closeGuestDetailsEditor}
+            disabled={guestDetailsEditorSaving}
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {guestDetailsEditorError && (
+              <Alert severity="error">{guestDetailsEditorError}</Alert>
+            )}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="First name"
+                name="firstName"
+                value={guestDetailsForm.firstName}
+                onChange={handleGuestDetailsFormChange}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Last name"
+                name="lastName"
+                value={guestDetailsForm.lastName}
+                onChange={handleGuestDetailsFormChange}
+                fullWidth
+                required
+              />
+            </Stack>
+            <TextField
+              label="Email"
+              name="email"
+              type="email"
+              value={guestDetailsForm.email}
+              onChange={handleGuestDetailsFormChange}
+              fullWidth
+            />
+            <TextField
+              label="Contact number"
+              name="contactNumber"
+              value={guestDetailsForm.contactNumber}
+              onChange={handleGuestDetailsFormChange}
+              fullWidth
+              required
+            />
+            <TextField
+              label="City/Province"
+              name="cityProvince"
+              value={guestDetailsForm.cityProvince}
+              onChange={handleGuestDetailsFormChange}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeGuestDetailsEditor}
+            disabled={guestDetailsEditorSaving}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveGuestDetails}
+            disabled={
+              guestDetailsEditorSaving ||
+              !guestDetailsForm.firstName.trim() ||
+              !guestDetailsForm.lastName.trim() ||
+              !guestDetailsForm.contactNumber.trim()
+            }
+          >
+            {guestDetailsEditorSaving ? "Saving..." : "Save details"}
           </Button>
         </DialogActions>
       </Dialog>
