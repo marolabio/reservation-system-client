@@ -20,7 +20,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import AdminLayout from "../components/layout/AdminLayout";
 import ReservationViewDialog from "../components/reservation/ReservationViewDialog";
 import supabase from "../utils/supabase";
-import { getAdminReservations } from "../services/resortService";
+import { getAdminReservations, getAdminRooms } from "../services/resortService";
 
 const statusColors = {
   pending: "default",
@@ -32,6 +32,7 @@ const statusColors = {
 };
 
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const inventoryHoldingStatuses = ["pending", "confirmed", "checked_in"];
 
 function formatStatusLabel(status) {
   return String(status || "")
@@ -69,6 +70,7 @@ function guestName(reservation) {
 export default function CalendarPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(moment().startOf("month"));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,8 +87,12 @@ export default function CalendarPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await getAdminReservations();
-      setReservations(data);
+      const [reservationData, roomData] = await Promise.all([
+        getAdminReservations(),
+        getAdminRooms(),
+      ]);
+      setReservations(reservationData);
+      setRooms(roomData);
     } catch (err) {
       const message = err.message || "Unable to load bookings.";
       setError(message);
@@ -166,9 +172,50 @@ export default function CalendarPage() {
     }, {});
   }, [filteredReservations]);
 
+  const fullyBookedDates = useMemo(() => {
+    const activeRooms = rooms.filter((room) => room.status === "active");
+    const activeRoomIds = new Set(activeRooms.map((room) => room.id));
+    const totalRoomInventory = activeRooms.reduce(
+      (sum, room) => sum + Number(room.quantity || 0),
+      0,
+    );
+
+    if (!totalRoomInventory) return new Set();
+
+    const reservedQuantityByDate = reservations
+      .filter((reservation) =>
+        inventoryHoldingStatuses.includes(reservation.status),
+      )
+      .reduce((map, reservation) => {
+        const reservedQuantity = (reservation.reserved_rooms || [])
+          .filter((room) => activeRoomIds.has(room.room_id))
+          .reduce(
+            (sum, room) => sum + Number(room.reserved_quantity || 0),
+            0,
+          );
+
+        if (!reservedQuantity) return map;
+
+        bookingNights(reservation).forEach((date) => {
+          map[date] = (map[date] || 0) + reservedQuantity;
+        });
+
+        return map;
+      }, {});
+
+    return new Set(
+      Object.entries(reservedQuantityByDate)
+        .filter(([, reservedQuantity]) => reservedQuantity >= totalRoomInventory)
+        .map(([date]) => date),
+    );
+  }, [reservations, rooms]);
+
   const selectedDateBookings = selectedDate
     ? bookingsByDate[selectedDate] || []
     : [];
+  const selectedDateFullyBooked = selectedDate
+    ? fullyBookedDates.has(selectedDate)
+    : false;
   const monthBookings = reservations.filter((reservation) =>
     bookingNights(reservation).some((date) =>
       moment(date).isSame(currentMonth, "month"),
@@ -192,18 +239,6 @@ export default function CalendarPage() {
       value: monthBookings.filter((booking) => booking.status === "checked_in")
         .length,
       filter: "checked_in",
-    },
-    {
-      label: formatStatusLabel("checked_out"),
-      value: monthBookings.filter((booking) => booking.status === "checked_out")
-        .length,
-      filter: "checked_out",
-    },
-    {
-      label: formatStatusLabel("no_show"),
-      value: monthBookings.filter((booking) => booking.status === "no_show")
-        .length,
-      filter: "no_show",
     },
   ];
 
@@ -374,6 +409,7 @@ export default function CalendarPage() {
               const dateKey = day.format("YYYY-MM-DD");
               const dayBookings = bookingsByDate[dateKey] || [];
               const isCurrentMonth = day.isSame(currentMonth, "month");
+              const isFullyBooked = fullyBookedDates.has(dateKey);
 
               const statusCounts = dayBookings.reduce((counts, reservation) => {
                 counts[reservation.status] =
@@ -403,66 +439,87 @@ export default function CalendarPage() {
                     bgcolor: isCurrentMonth ? "background.paper" : "action.hover",
                     opacity: isCurrentMonth ? 1 : 0.55,
                     "&:hover": {
-                      bgcolor:
-                        dayBookings.length > 0
+                      bgcolor: isFullyBooked
+                        ? "rgba(211, 47, 47, 0.14)"
+                        : dayBookings.length > 0
                           ? "rgba(15, 118, 110, 0.08)"
                           : "action.hover",
                     },
                   }}
                 >
                   <Stack spacing={0.75}>
-                    <Typography
-                      sx={{
-                        alignItems: "center",
-                        bgcolor: day.isSame(moment(), "day")
-                          ? "primary.main"
-                          : "transparent",
-                        borderRadius: "50%",
-                        color: day.isSame(moment(), "day")
-                          ? "primary.contrastText"
-                          : "text.primary",
-                        display: "inline-flex",
-                        fontSize: 13,
-                        fontWeight: 800,
-                        height: 24,
-                        justifyContent: "center",
-                        width: 24,
-                      }}
-                    >
-                      {day.date()}
-                    </Typography>
-                    {dayBookings.length > 0 && (
-                      <Box
+                    <Stack direction="row" justifyContent="space-between" spacing={0.5}>
+                      <Typography
                         sx={{
-                          bgcolor: "rgba(15, 118, 110, 0.08)",
-                          border: "1px solid",
-                          borderColor: "primary.light",
-                          borderRadius: 1,
-                          display: { xs: "none", sm: "block" },
-                          px: 0.75,
-                          py: 0.5,
+                          alignItems: "center",
+                          bgcolor: day.isSame(moment(), "day")
+                            ? "primary.main"
+                            : "transparent",
+                          borderRadius: "50%",
+                          color: day.isSame(moment(), "day")
+                            ? "primary.contrastText"
+                            : "text.primary",
+                          display: "inline-flex",
+                          flex: "0 0 auto",
+                          fontSize: 13,
+                          fontWeight: 800,
+                          height: 24,
+                          justifyContent: "center",
+                          width: 24,
                         }}
                       >
-                        <Typography
-                          sx={{
-                            color: "text.secondary",
-                            fontSize: 10.5,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {Object.entries(statusCounts)
-                            .map(
-                              ([status, count]) =>
-                                `${count} ${formatStatusLabel(status)}`,
-                            )
-                            .join(" / ")}
-                        </Typography>
-                      </Box>
-                    )}
-                    {dayBookings.length > 2 && (
-                      <Typography sx={{ color: "text.secondary", display: { xs: "none", sm: "block" }, fontSize: 10.5 }}>
-                        Tap to view all
+                        {day.date()}
                       </Typography>
+                      {isFullyBooked && (
+                        <Chip
+                          label="FULL"
+                          color="error"
+                          size="small"
+                          sx={{
+                            flex: "0 0 auto",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            height: 22,
+                            maxWidth: { xs: 78, sm: 110 },
+                            "& .MuiChip-label": {
+                              overflow: "hidden",
+                              px: 0.75,
+                              textOverflow: "ellipsis",
+                            },
+                          }}
+                        />
+                      )}
+                    </Stack>
+                    {dayBookings.length > 0 && (
+                      <Stack
+                        direction="row"
+                        flexWrap="wrap"
+                        gap={0.5}
+                        sx={{
+                          display: { xs: "none", sm: "flex" },
+                        }}
+                      >
+                        {Object.entries(statusCounts).map(([status, count]) => (
+                          <Chip
+                            key={status}
+                            label={`${count} ${formatStatusLabel(status)}`}
+                            color={statusColors[status] || "default"}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              height: 22,
+                              maxWidth: "100%",
+                              "& .MuiChip-label": {
+                                overflow: "hidden",
+                                px: 0.75,
+                                textOverflow: "ellipsis",
+                              },
+                            }}
+                          />
+                        ))}
+                      </Stack>
                     )}
                   </Stack>
                 </Box>
@@ -495,6 +552,14 @@ export default function CalendarPage() {
             {selectedDateBookings.length} booking
             {selectedDateBookings.length === 1 ? "" : "s"}
           </Typography>
+          {selectedDateFullyBooked && (
+            <Chip
+              label="Fully booked"
+              color="error"
+              size="small"
+              sx={{ mt: 1, fontWeight: 800 }}
+            />
+          )}
         </DialogTitle>
         <DialogContent>
           <Button

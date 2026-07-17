@@ -580,8 +580,6 @@ export default function ReservationViewDialog({
   const openCancelModal = () => {
     setCancelForm({
       ...emptyCancelForm,
-      refundAmount: canRecordRefund ? String(financials.netPaid) : "",
-      notes: canRecordRefund ? "Cancellation refund" : "",
     });
     setCancelOpen(true);
   };
@@ -590,6 +588,13 @@ export default function ReservationViewDialog({
     if (cancelSaving) return;
     setCancelOpen(false);
     setCancelForm(emptyCancelForm);
+  };
+
+  const handleCancelFormChange = (event) => {
+    setCancelForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
   };
 
   const handleCancelReservation = async () => {
@@ -2602,12 +2607,51 @@ export default function ReservationViewDialog({
               Cancel this reservation? This action will move it to cancelled and
               release the reserved room availability.
             </Typography>
-            {canRecordRefund && (
-              <Alert severity="info">
-                A refund of {formatMoney(financials?.netPaid)} will be recorded
-                automatically.
-              </Alert>
+            {canRecordRefund ? (
+              <>
+                <TextField
+                  label="Refund amount"
+                  name="refundAmount"
+                  type="number"
+                  value={cancelForm.refundAmount}
+                  onChange={handleCancelFormChange}
+                  inputProps={{
+                    min: 0.01,
+                    max: financials?.netPaid || 0,
+                    step: "0.01",
+                  }}
+                  helperText={`Enter up to ${formatMoney(financials?.netPaid)}.`}
+                  fullWidth
+                />
+                <TextField
+                  select
+                  label="Refund method"
+                  name="method"
+                  value={cancelForm.method}
+                  onChange={handleCancelFormChange}
+                  fullWidth
+                >
+                  {paymentMethods.map((method) => (
+                    <MenuItem key={method.value} value={method.value}>
+                      {method.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </>
+            ) : (
+              <Typography color="text.secondary" variant="body2">
+                No refundable amount.
+              </Typography>
             )}
+            <TextField
+              label="Cancellation notes"
+              name="notes"
+              value={cancelForm.notes}
+              onChange={handleCancelFormChange}
+              fullWidth
+              multiline
+              minRows={3}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -2618,7 +2662,17 @@ export default function ReservationViewDialog({
             color="error"
             variant="contained"
             onClick={handleCancelReservation}
-            disabled={cancelSaving}
+            disabled={
+              cancelSaving ||
+              (
+                canRecordRefund &&
+                (
+                  !Number.isFinite(Number(cancelForm.refundAmount)) ||
+                  Number(cancelForm.refundAmount) <= 0 ||
+                  Number(cancelForm.refundAmount) > Number(financials?.netPaid || 0)
+                )
+              )
+            }
           >
             {cancelSaving ? "Cancelling..." : "Cancel reservation"}
           </Button>

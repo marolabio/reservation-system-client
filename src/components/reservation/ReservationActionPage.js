@@ -65,12 +65,7 @@ export default function ReservationActionPage({ action }) {
       setLoading(true);
       try {
         const nextReservation = await getAdminReservationById(id);
-        const financials = getReservationFinancials(nextReservation);
         setReservation(nextReservation);
-
-        if (action === "cancel" && financials.netPaid > 0) {
-          setForm((current) => ({ ...current, refundAmount: String(financials.netPaid) }));
-        }
       } catch (err) {
         setError(err.message || "Unable to load reservation.");
       } finally {
@@ -148,7 +143,7 @@ export default function ReservationActionPage({ action }) {
                           value={form.refundAmount}
                           onChange={handleChange}
                           inputProps={{ min: 0.01, max: financials.netPaid, step: "0.01" }}
-                          helperText="Required when there is a refundable amount."
+                          helperText={`Enter up to ${formatMoney(financials.netPaid)}.`}
                           fullWidth
                         />
                         <TextField select label="Refund method" name="method" value={form.method} onChange={handleChange} fullWidth>
@@ -175,7 +170,11 @@ export default function ReservationActionPage({ action }) {
                     (
                       action === "cancel" &&
                       canRecordRefund &&
-                      (!Number.isFinite(Number(form.refundAmount)) || Number(form.refundAmount) <= 0)
+                      (
+                        !Number.isFinite(Number(form.refundAmount)) ||
+                        Number(form.refundAmount) <= 0 ||
+                        Number(form.refundAmount) > Number(financials.netPaid)
+                      )
                     )
                   }
                 >

@@ -203,7 +203,6 @@ export default function ReservationDetailPage() {
   const openCancelModal = () => {
     setCancelForm({
       ...emptyCancelForm,
-      refundAmount: canRecordRefund ? String(financials.netPaid) : "",
     });
     setCancelOpen(true);
   };
@@ -622,7 +621,7 @@ export default function ReservationDetailPage() {
                   value={cancelForm.refundAmount}
                   onChange={handleCancelFormChange}
                   inputProps={{ min: 0.01, max: financials?.netPaid || 0, step: "0.01" }}
-                  helperText="Required when there is a refundable amount."
+                  helperText={`Enter up to ${formatMoney(financials?.netPaid)}.`}
                   fullWidth
                 />
                 <TextField select label="Refund method" name="method" value={cancelForm.method} onChange={handleCancelFormChange} fullWidth>
@@ -650,7 +649,11 @@ export default function ReservationDetailPage() {
               cancelSaving ||
               (
                 canRecordRefund &&
-                (!Number.isFinite(Number(cancelForm.refundAmount)) || Number(cancelForm.refundAmount) <= 0)
+                (
+                  !Number.isFinite(Number(cancelForm.refundAmount)) ||
+                  Number(cancelForm.refundAmount) <= 0 ||
+                  Number(cancelForm.refundAmount) > Number(financials?.netPaid || 0)
+                )
               )
             }
           >
